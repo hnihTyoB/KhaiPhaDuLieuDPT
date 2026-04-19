@@ -306,10 +306,10 @@ def predict_single(gray, kmeans, svm, label_names):
 def print_prediction(result, header=""):
     if header:
         print(f"\n  {header}")
-    print(f"  Dự đoán:    {result['display_name']}")
-    print(f"  Confidence: {result['confidence']:.2%}")
-    print(f"  Keypoints:  {result['num_keypoints']}")
-    print(f"  Xác suất:")
+    print(f"Dự đoán:    {result['display_name']}")
+    print(f"Confidence: {result['confidence']:.2%}")
+    print(f"Keypoints:  {result['num_keypoints']}")
+    print(f"Xác suất:")
     for name, prob in result['all_proba'].items():
         display = DISPLAY_NAMES.get(name, name)
         bar = "█" * int(prob * 30)
@@ -318,35 +318,35 @@ def print_prediction(result, header=""):
 
 def print_comparison(before, after, detected_angle, simulated_angle):
     print(f"\n{'═' * 65}")
-    print("  KẾT QUẢ SO SÁNH: TRƯỚC vs SAU SIFT PREPROCESSING")
+    print("KẾT QUẢ SO SÁNH: TRƯỚC vs SAU SIFT PREPROCESSING")
     print(f"{'═' * 65}")
 
     # Bảng so sánh
-    print(f"\n  {'Tiêu chí':20s} {'TRƯỚC CHỈNH':>18s}    {'SAU CHỈNH':>18s}    {'THAY ĐỔI':>10s}")
-    print(f"  {'─' * 20} {'─' * 18}    {'─' * 18}    {'─' * 10}")
+    print(f"\n{'Tiêu chí':20s} {'TRƯỚC CHỈNH':>18s}    {'SAU CHỈNH':>18s}    {'THAY ĐỔI':>10s}")
+    print(f"{'─' * 20} {'─' * 18}    {'─' * 18}    {'─' * 10}")
 
     # Dự đoán
-    print(f"  {'Dự đoán':20s} {before['display_name']:>18s}    {after['display_name']:>18s}")
+    print(f"{'Dự đoán':20s} {before['display_name']:>18s}    {after['display_name']:>18s}")
 
     # Confidence
     conf_change = after['confidence'] - before['confidence']
-    print(f"  {'Confidence':20s} {before['confidence']:>17.2%}    {after['confidence']:>17.2%}    {conf_change:>+9.2%}")
+    print(f"{'Confidence':20s} {before['confidence']:>17.2%}    {after['confidence']:>17.2%}    {conf_change:>+9.2%}")
 
     # Keypoints
     kp_change = after['num_keypoints'] - before['num_keypoints']
-    print(f"  {'Keypoints':20s} {before['num_keypoints']:>18d}    {after['num_keypoints']:>18d}    {kp_change:>+10d}")
+    print(f"{'Keypoints':20s} {before['num_keypoints']:>18d}    {after['num_keypoints']:>18d}    {kp_change:>+10d}")
 
     # Góc xoay
     if detected_angle is not None:
-        print(f"\n  Góc xoay phát hiện bởi SIFT: {detected_angle:+.1f}°")
+        print(f"\nGóc xoay phát hiện bởi SIFT: {detected_angle:+.1f}°")
     if simulated_angle is not None:
-        print(f"  Góc xoay thực tế (giả lập):  {simulated_angle:+.1f}°")
+        print(f"Góc xoay thực tế (giả lập):  {simulated_angle:+.1f}°")
         error = abs(simulated_angle - (detected_angle or 0))
-        print(f"  Sai số phát hiện góc:         {error:.1f}°")
+        print(f"Sai số phát hiện góc:         {error:.1f}°")
 
     # Kết luận
     print(f"\n{'*' * 65}")
-    print("  KẾT LUẬN")
+    print("KẾT LUẬN")
     print(f"{'*' * 65}")
 
     if after['confidence'] > before['confidence']:
@@ -453,7 +453,7 @@ def save_pipeline_results(user_gray, corrected_gray, ref_info,
 # PIPELINE CHÍNH
 def full_pipeline(image_path, simulate_angle=None):
     print("\n" + "█" * 65)
-    print("  PIPELINE: SIFT PREPROCESSING + NHẬN DẠNG ẢNH ĐỊA DANH")
+    print("PIPELINE: SIFT PREPROCESSING + NHẬN DẠNG ẢNH ĐỊA DANH")
     print("█" * 65)
 
     os.makedirs(RESULTS_DIR, exist_ok=True)
@@ -501,7 +501,7 @@ def full_pipeline(image_path, simulate_angle=None):
 
     # BƯỚC 3: SIFT matching → Tìm ảnh mẫu + phát hiện góc xoay
     print(f"\n{'─' * 65}")
-    print("  BƯỚC 3: SIFT MATCHING → PHÁT HIỆN GÓC XOAY")
+    print("BƯỚC 3: SIFT MATCHING → PHÁT HIỆN GÓC XOAY")
     print(f"{'─' * 65}")
 
     # Truyền tất cả các lớp vào hàm SIFT matching thay vì chỉ lớp có xác suất cao nhất
@@ -575,11 +575,10 @@ def full_pipeline(image_path, simulate_angle=None):
 
 # MENU
 def main():
-    """Menu console chính."""
     while True:
         print("\n" + "=" * 65)
-        print("  SIFT LANDMARK PIPELINE")
-        print("  Tiền xử lý ảnh bằng SIFT + Nhận dạng địa danh")
+        print("SIFT LANDMARK PIPELINE")
+        print("Tiền xử lý ảnh bằng SIFT + Nhận dạng địa danh")
         print("=" * 65)
         print(f"""
   Mô tả:
@@ -591,12 +590,12 @@ def main():
      • Models:      models/
      • Kết quả:     {RESULTS_DIR}/
         """)
-        print(" [1] Huấn luyện mô hình")
-        print(" [2] Nhận dạng ảnh (có SIFT preprocessing)")
-        print(" [0] Thoát")
+        print("[1] Huấn luyện mô hình")
+        print("[2] Nhận dạng ảnh (có SIFT preprocessing)")
+        print("[0] Thoát")
         print("-" * 65)
 
-        choice = input(" Lựa chọn (0-2): ").strip()
+        choice = input("Lựa chọn (0-2): ").strip()
 
         if choice == '1':
             train_pipeline()

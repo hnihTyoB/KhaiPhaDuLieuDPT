@@ -20,8 +20,8 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 # ⚙️ THAM SỐ QUAN TRỌNG (CẤU HÌNH)
 # =============================================================================
 DATASET_PATH = 'dataset'                # Cấu trúc: dataset/<tên_lớp>/<ảnh>
-IMG_SIZE = (256, 256)                   # Kích thước resize ảnh
-K_CLUSTERS = 200                        # Số cụm K-Means (tăng cho dataset lớn ~6400 ảnh)
+IMG_SIZE = (512, 512)                   # Tăng kích thước để giữ chi tiết gạch/cột
+K_CLUSTERS = 600                        # Tăng cụm K-Means cho đa dạng đặc trưng (Parthenon, Đức Bà)
 SVM_KERNEL = 'linear'                   # Kernel SVM: 'linear' phù hợp BoVW histogram
 SVM_C = 1.0                             # Tham số C của SVM
 TEST_SPLIT_RATIO = 0.2                  # Tỉ lệ tập test (80/20)
@@ -46,57 +46,42 @@ DISPLAY_NAMES = {
     'nuthantudo': 'Tượng Nữ thần Tự do (Mỹ)',
     'eiffel': 'Tháp Eiffel (Pháp)',
     'pyramid': 'Kim Tự Tháp (Ai Cập)',
+    'parthenon': 'Đền Parthenon (Hy Lạp)',
+    'nhathoducba': 'Nhà thờ Đức Bà (TP.HCM)',
+    'neuschwanstein': 'Lâu đài Neuschwanstein (Đức)',
+    'arcdetriomphe': 'Khải Hoàn Môn (Pháp)',
 }
 
 
 # Lớp cần bỏ qua khi huấn luyện (quá chung chung, không phải địa danh cụ thể)
-EXCLUDE_CLASSES = ['general']
+EXCLUDE_CLASSES = ['nuthantudo', 'parthenon', 'thaprua', 'nhathoducba']
 
-# =============================================================================
-# 🔧 TIỀN XỬ LÝ ẢNH
-# =============================================================================
+# TIỀN XỬ LÝ ẢNH
 def load_and_preprocess(image_path):
-    """
-    Bước 1-2: Đọc ảnh → Resize → Chuyển Grayscale.
-
-    Args:
-        image_path (str): Đường dẫn tới file ảnh
-
-    Returns:
-        np.ndarray: Ảnh grayscale kích thước IMG_SIZE, hoặc None nếu lỗi
-    """
     img = cv2.imread(image_path)
     if img is None:
         print(f"[WARN] Không thể đọc ảnh: {image_path}")
         return None
 
-    # Resize về kích thước chuẩn
-    img_resized = cv2.resize(img, IMG_SIZE)
+    # Lấy kích thước ảnh gốc và tính toán tỷ lệ (giúp không làm méo ảnh)
+    h, w = img.shape[:2]
+    target_w, target_h = IMG_SIZE
+    scale = min(target_w / w, target_h / h)
+    
+    new_w, new_h = int(w * scale), int(h * scale)
+    img_resized = cv2.resize(img, (new_w, new_h))
 
-    # Chuyển sang grayscale
+    # Chuyển sang grayscale (KHÔNG padding để tránh đường viền đen tạo keypoint giả)
     gray = cv2.cvtColor(img_resized, cv2.COLOR_BGR2GRAY)
 
     return gray
 
 
-# =============================================================================
-# 🔍 TRÍCH XUẤT ĐẶC TRƯNG SIFT
-# =============================================================================
+# TRÍCH XUẤT ĐẶC TRƯNG SIFT
 def extract_sift_descriptors(image):
-    """
-    Bước 3: Trích xuất SIFT descriptors từ ảnh grayscale.
-    
-    Sử dụng thuật toán SIFT gốc OpenCV (cv2.SIFT_create()).
-
-    Args:
-        image (np.ndarray): Ảnh grayscale
-
-    Returns:
-        keypoints: Danh sách keypoints
-        descriptors (np.ndarray): Mảng descriptors [N, 128]
-    """
     try:
-        sift = cv2.SIFT_create()
+        # Tăng độ nhạy SIFT để bắt được nhiều nét gạch/cột hơn
+        sift = cv2.SIFT_create(contrastThreshold=0.02, edgeThreshold=15)
         keypoints, descriptors = sift.detectAndCompute(image, None)
     except Exception as e:
         print(f"[WARN] Lỗi trích xuất SIFT: {e}")
@@ -109,18 +94,6 @@ def extract_sift_descriptors(image):
 
 
 def load_dataset_and_extract_sift(dataset_path):
-    """
-    Bước 1-3: Tải toàn bộ dataset, tiền xử lý và trích xuất SIFT.
-
-    Args:
-        dataset_path (str): Đường dẫn thư mục dataset
-
-    Returns:
-        all_descriptors (list): Tất cả descriptors gộp lại
-        image_descriptors (list): Descriptors theo từng ảnh
-        labels (list): Nhãn tương ứng từng ảnh
-        label_names (list): Danh sách tên các lớp
-    """
     print("\n" + "=" * 60)
     print(" BƯỚC 1-3: TẢI DỮ LIỆU VÀ TRÍCH XUẤT SIFT")
     print("=" * 60)
@@ -174,7 +147,8 @@ def load_dataset_and_extract_sift(dataset_path):
                 kps_xy = np.array([kp.pt for kp in kps])
                 image_data_list.append({
                     'keypoints': kps_xy,
-                    'descriptors': descs
+                    'descriptors': descs,
+                    'shape': gray.shape
                 })
                 labels.append(label_name)
                 count += 1
@@ -205,22 +179,8 @@ def load_dataset_and_extract_sift(dataset_path):
     return all_desc_array, image_data_list, labels, label_names
 
 
-# =============================================================================
-# 📚 XÂY DỰNG BAG OF VISUAL WORDS (BoVW)
-# =============================================================================
+# XÂY DỰNG BAG OF VISUAL WORDS (BoVW)
 def build_visual_vocabulary(all_descriptors, k):
-    """
-    Bước 4.1: Xây dựng "Từ điển thị giác" bằng K-Means.
-
-    Gom tất cả SIFT descriptors thành K cụm → mỗi cụm đại diện 1 "từ thị giác".
-
-    Args:
-        all_descriptors (np.ndarray): Tất cả descriptors [N, 128]
-        k (int): Số cụm (kích thước từ điển)
-
-    Returns:
-        KMeans: Mô hình K-Means đã huấn luyện (codebook)
-    """
     print("\n" + "=" * 60)
     print(f" BƯỚC 4.1: XÂY DỰNG TỪ ĐIỂN THỊ GIÁC (K-Means, K={k})")
     print("=" * 60)
@@ -243,24 +203,6 @@ def build_visual_vocabulary(all_descriptors, k):
 
 
 def create_histograms(image_data_list, kmeans_model, k):
-    """
-    Bước 4.2: Biểu diễn mỗi ảnh bằng histogram đặc trưng sử dụng Spatial Pyramid Matching (SPM).
-
-    Với mỗi ảnh:
-    - Gán từng descriptor vào cụm gần nhất
-    - Đếm số lần xuất hiện (histogram) cho 1x1 (toàn ảnh) và 2x2 (4 góc)
-    - Chuẩn hóa
-
-    → Mỗi ảnh → vector cố định kích thước K * 5 vùng = 5K chiều.
-
-    Args:
-        image_data_list (list): Danh sách dict gồm 'keypoints' và 'descriptors'.
-        kmeans_model (KMeans): Mô hình K-Means (codebook)
-        k (int): Số cụm
-
-    Returns:
-        np.ndarray: Ma trận histograms [num_images, K * 5]
-    """
     print(f"\n[INFO] Đang tạo histogram đặc trưng (SPM 1x1+2x2) cho {len(image_data_list)} ảnh...")
 
     num_images = len(image_data_list)
@@ -268,12 +210,14 @@ def create_histograms(image_data_list, kmeans_model, k):
     num_regions = 5
     histograms = np.zeros((num_images, k * num_regions), dtype=np.float32)
 
-    half_w = IMG_SIZE[0] / 2.0
-    half_h = IMG_SIZE[1] / 2.0
-
     for i, data in enumerate(image_data_list):
         descriptors = data['descriptors']
         keypoints = data['keypoints']
+        
+        # Động lấy kích thước thực của ảnh đang xét (không gán cứng cục bộ)
+        h, w = data['shape']
+        half_w = w / 2.0
+        half_h = h / 2.0
         
         if descriptors is not None and len(descriptors) > 0:
             descriptors = np.array(descriptors, dtype=np.float32)
@@ -308,26 +252,8 @@ def create_histograms(image_data_list, kmeans_model, k):
     return histograms
 
 
-# =============================================================================
-# 🎓 HUẤN LUYỆN MÔ HÌNH SVM
-# =============================================================================
+# HUẤN LUYỆN MÔ HÌNH SVM
 def train_svm(features, labels, label_names, kernel):
-    """
-    Bước 5: Huấn luyện SVM và đánh giá trên tập test.
-    ❌ KHÔNG dùng StandardScaler (histogram đã L2 normalize)
-    ❌ KHÔNG dùng probability=True (gây fake confidence với dataset nhỏ)
-    ✅ Dùng decision_function để tính confidence thật
-
-    Args:
-        features (np.ndarray): Ma trận histograms [N, K] (đã L2 normalize)
-        labels (list): Nhãn text tương ứng
-        label_names (list): Danh sách tên lớp
-        kernel (str): Kernel SVM ('linear', 'rbf', 'poly')
-
-    Returns:
-        svm (SVC): Mô hình SVM đã huấn luyện
-        accuracy (float): Độ chính xác trên tập test
-    """
     print("\n" + "=" * 60)
     print(" BƯỚC 5: HUẤN LUYỆN MÔ HÌNH SVM")
     print("=" * 60)
@@ -357,9 +283,6 @@ def train_svm(features, labels, label_names, kernel):
 
     print(f"     └── Train: {len(X_train)} mẫu | Test: {len(X_test)} mẫu")
 
-    # ❌ KHÔNG dùng StandardScaler — histogram đã L2 normalize, có ý nghĩa xác suất
-    # StandardScaler sẽ phá vỡ phân phối histogram
-
     # Huấn luyện SVM
     print(f"\n[INFO] Huấn luyện SVM (kernel='{kernel}', C={SVM_C})...")
 
@@ -374,12 +297,12 @@ def train_svm(features, labels, label_names, kernel):
 
     # ===== ĐÁNH GIÁ =====
     print("\n" + "-" * 40)
-    print(" 📊 ĐÁNH GIÁ HỆ THỐNG")
+    print("ĐÁNH GIÁ HỆ THỐNG")
     print("-" * 40)
 
     y_pred = svm.predict(X_test)
     accuracy = accuracy_score(y_test, y_pred)
-    print(f"\n ✅ Accuracy (Độ chính xác): {accuracy:.4f} ({accuracy:.2%})")
+    print(f"\nAccuracy (Độ chính xác): {accuracy:.4f} ({accuracy:.2%})")
 
     # Classification Report
     display_labels = [DISPLAY_NAMES.get(name, name) for name in label_names]
@@ -398,13 +321,6 @@ def train_svm(features, labels, label_names, kernel):
 
 
 def plot_confusion_matrix(cm, class_names):
-    """
-    Vẽ và lưu confusion matrix dạng heatmap.
-
-    Args:
-        cm (np.ndarray): Ma trận nhầm lẫn
-        class_names (list): Tên các lớp hiển thị
-    """
     output_path = os.path.join(MODEL_DIR, 'confusion_matrix.png')
 
     plt.figure(figsize=(8, 6))
@@ -426,11 +342,8 @@ def plot_confusion_matrix(cm, class_names):
     print(f"\n[OK] Confusion Matrix đã lưu tại: {output_path}")
 
 
-# =============================================================================
-# 💾 LƯU / TẢI MÔ HÌNH
-# =============================================================================
+# LƯU / TẢI MÔ HÌNH
 def save_models(kmeans_model, svm_model, label_names):
-    """Lưu tất cả mô hình đã huấn luyện (không có scaler)."""
     os.makedirs(MODEL_DIR, exist_ok=True)
 
     with open(KMEANS_MODEL_PATH, 'wb') as f:
@@ -447,12 +360,6 @@ def save_models(kmeans_model, svm_model, label_names):
 
 
 def load_models():
-    """
-    Tải các mô hình đã lưu.
-
-    Returns:
-        kmeans, svm, label_names hoặc None nếu chưa huấn luyện
-    """
     required = [KMEANS_MODEL_PATH, SVM_MODEL_PATH, LABEL_NAMES_PATH]
     if not all(os.path.exists(p) for p in required):
         print("[LỖI] Chưa tìm thấy mô hình đã huấn luyện!")
@@ -470,22 +377,10 @@ def load_models():
     return kmeans, svm, label_names
 
 
-# =============================================================================
-# 🏋️ QUY TRÌNH HUẤN LUYỆN (TRAINING PIPELINE)
-# =============================================================================
+# QUY TRÌNH HUẤN LUYỆN (TRAINING PIPELINE)
 def train_pipeline():
-    """
-    Giai đoạn 1: Thực hiện toàn bộ quy trình huấn luyện.
-
-    1. Tạo dataset giả lập (nếu cần)
-    2. Tải ảnh + trích xuất SIFT
-    3. Xây dựng từ điển thị giác (K-Means)
-    4. Tạo histograms BoVW
-    5. Huấn luyện SVM + đánh giá
-    6. Lưu mô hình
-    """
     print("\n" + "█" * 60)
-    print(" 🎓 GIAI ĐOẠN HUẤN LUYỆN (TRAINING PHASE)")
+    print("GIAI ĐOẠN HUẤN LUYỆN (TRAINING PHASE)")
     print("█" * 60)
 
     if not os.path.exists(DATASET_PATH):
@@ -519,28 +414,15 @@ def train_pipeline():
     save_models(kmeans, svm, label_names)
 
     print("\n" + "█" * 60)
-    print(f" ✅ HUẤN LUYỆN HOÀN THÀNH! — Accuracy: {accuracy:.2%}")
+    print(f"HUẤN LUYỆN HOÀN THÀNH! — Accuracy: {accuracy:.2%}")
     print("█" * 60)
 
     return True
 
 
-# =============================================================================
-# 🔮 DỰ ĐOÁN ẢNH MỚI (INFERENCE)
-# =============================================================================
+# DỰ ĐOÁN ẢNH MỚI (INFERENCE)
 def predict_image(image_path):
-    """
-    Giai đoạn 2: Dự đoán lớp cho một ảnh mới.
-
-    1. Tải mô hình đã huấn luyện
-    2. Tiền xử lý ảnh
-    3. Trích xuất SIFT → Histogram (SPM)
-    4. SVM dự đoán → Tên địa danh
-
-    Args:
-        image_path (str): Đường dẫn ảnh cần dự đoán
-    """
-    print(f"\n--- 🔮 DỰ ĐOÁN cho ảnh: {image_path} ---")
+    print(f"\n--- DỰ ĐOÁN cho ảnh: {image_path} ---")
 
     # Tải models (không có scaler)
     kmeans, svm, label_names = load_models()
@@ -566,7 +448,7 @@ def predict_image(image_path):
     # Bước 7: Tạo histogram sử dụng SPM
     k = kmeans.n_clusters
     kps_xy = np.array([kp.pt for kp in kps])
-    data = [{'keypoints': kps_xy, 'descriptors': descriptors}]
+    data = [{'keypoints': kps_xy, 'descriptors': descriptors, 'shape': gray.shape}]
     histogram = create_histograms(data, kmeans, k)
 
     # Bước 8: SVM dự đoán (chỉ dùng predict_proba để đảm bảo đồng nhất % cao nhất)
@@ -583,11 +465,11 @@ def predict_image(image_path):
 
     # Hiển thị kết quả
     print("\n" + "─" * 55)
-    print(f" 📍 ĐỊA DANH:     {display_name}")
-    print(f" 📊 ĐỘ TIN CẬY:   {confidence:.2%}")
-    print(f" 🔑 SỐ KEYPOINTS: {len(descriptors)}")
+    print(f"ĐỊA DANH:     {display_name}")
+    print(f"ĐỘ TIN CẬY:   {confidence:.2%}")
+    print(f"SỐ KEYPOINTS: {len(descriptors)}")
     if confidence < CONFIDENCE_THRESHOLD:
-        print(f" ⚠️  GHI CHÚ:      Confidence < {CONFIDENCE_THRESHOLD:.0%} → Không xác định")
+        print(f"GHI CHÚ:      Confidence < {CONFIDENCE_THRESHOLD:.0%} → Không xác định")
     print("─" * 55)
     print(" XÁC SUẤT CHO TỪNG LỚP:")
     for i, name in enumerate(label_names):
@@ -625,9 +507,7 @@ def predict_image(image_path):
         print(f"[INFO] Lỗi trong quá trình xuất ảnh dự đoán: {e}")
 
 
-# =============================================================================
-# 🎬 DEMO TỰ ĐỘNG
-# =============================================================================
+# DEMO TỰ ĐỘNG
 def demo_auto():
     """
     Chạy demo tự động:
@@ -636,7 +516,7 @@ def demo_auto():
     3. Dự đoán trên 1 ảnh mẫu từ dataset
     """
     print("\n" + "★" * 60)
-    print(" 🎬 DEMO TỰ ĐỘNG — HUẤN LUYỆN + DỰ ĐOÁN")
+    print("DEMO TỰ ĐỘNG — HUẤN LUYỆN + DỰ ĐOÁN")
     print("★" * 60)
 
     # Huấn luyện
@@ -647,7 +527,7 @@ def demo_auto():
 
     # Tìm ảnh mẫu để dự đoán
     print("\n\n" + "★" * 60)
-    print(" 🔮 DỰ ĐOÁN TRÊN ẢNH MẪU")
+    print("DỰ ĐOÁN TRÊN ẢNH MẪU")
     print("★" * 60)
 
     sample_image = None
@@ -667,29 +547,24 @@ def demo_auto():
         print("[LỖI] Không tìm thấy ảnh mẫu để demo.")
 
 
-# =============================================================================
-# 🏠 HÀM CHÍNH — MENU CONSOLE
-# =============================================================================
+# HÀM CHÍNH — MENU CONSOLE
 def main():
-    """
-    Hàm chính với menu console cho người dùng.
-    """
     while True:
         print("\n" + "=" * 60)
         print(" PHÂN LOẠI ẢNH ĐỊA DANH — SIFT + K-MEANS + SVM")
         print("=" * 60)
         print(f"""
- 📌 Cấu hình hiện tại:
+    Cấu hình hiện tại:
     • Dataset:        {DATASET_PATH}/
     • Kích thước ảnh: {IMG_SIZE[0]}×{IMG_SIZE[1]}
     • Số cụm K:       {K_CLUSTERS}
     • SVM Kernel:     {SVM_KERNEL}
     • Train/Test:     {int((1 - TEST_SPLIT_RATIO) * 100)}/{int(TEST_SPLIT_RATIO * 100)}
         """)
-        print(" [1] 🎓 Huấn luyện mô hình")
-        print(" [2] 🔮 Dự đoán ảnh mới")
-        print(" [3] 🎬 Demo tự động (Huấn luyện + Dự đoán)")
-        print(" [0] 🚪 Thoát")
+        print(" [1] Huấn luyện mô hình")
+        print(" [2] Dự đoán ảnh mới")
+        print(" [3] Demo tự động (Huấn luyện + Dự đoán)")
+        print(" [0] Thoát")
         print("-" * 60)
 
         choice = input(" Lựa chọn (0-3): ").strip()
@@ -708,15 +583,13 @@ def main():
             demo_auto()
 
         elif choice == '0':
-            print("\n 👋 Tạm biệt! Hẹn gặp lại.")
+            print("\nTạm biệt! Hẹn gặp lại.")
             break
 
         else:
             print("[WARN] Lựa chọn không hợp lệ! Vui lòng chọn 0-3.")
 
 
-# =============================================================================
-# 🚀 ĐIỂM VÀO CHƯƠNG TRÌNH
-# =============================================================================
+# ĐIỂM VÀO CHƯƠNG TRÌNH
 if __name__ == '__main__':
     main()

@@ -90,9 +90,11 @@ Nên dùng ảnh mới (không nằm trong dataset) để test khách quan
 
 **Nhóm 4 - D22CQPTUD01-N**
 
-- Nguyễn Chí Thịnh (N22DCPT089)
-- Huỳnh Thanh Trà (N22DCPT097)
-- Tô Duy Hào (N22DCPT025)
+| 🧑‍💻 Họ và tên | 🆔 Mã sinh viên | 🐙 GitHub |
+|:---|:---:|:---:|
+| **Nguyễn Chí Thịnh** | N22DCPT089 | [@hnihTyoB](https://github.com/hnihTyoB) |
+| **Huỳnh Thanh Trà** | N22DCPT097 | [@TraDeThuong](https://github.com/TraDeThuong) |
+| **Tô Duy Hào** | N22DCPT025 | [@Shunnio](https://github.com/Shunnio) |
 
 ---
 

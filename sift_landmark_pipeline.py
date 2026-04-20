@@ -1,18 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
- PIPELINE:
-  Ảnh user (có thể bị xoay)
-       ↓
-  [1] Dự đoán TRƯỚC chỉnh → kết quả A
-       ↓
-  [2] SIFT matching với ảnh mẫu từ dataset → tìm reference tốt nhất
-       ↓
-  [3] Phát hiện góc xoay → Chỉnh xoay ảnh
-       ↓
-  [4] Dự đoán SAU chỉnh → kết quả B
-       ↓
-  [5] So sánh A vs B → Kết luận
-"""
 
 import os
 import cv2
@@ -34,13 +20,12 @@ from landmark_sift_bovw import (
 )
 
 RESULTS_DIR = os.path.abspath('results_pipeline')
-RATIO_THRESHOLD = 0.75           # Ngưỡng Lowe's ratio test
-NUM_REF_PER_CLASS = 40           # Số ảnh tham chiếu trên mỗi lớp
-MIN_GOOD_MATCHES = 6             # Số matches tối thiểu để phát hiện xoay
+RATIO_THRESHOLD = 0.75 # Ngưỡng Lowe's ratio test
+NUM_REF_PER_CLASS = 40 # Số ảnh tham chiếu trên mỗi lớp
+MIN_GOOD_MATCHES = 6 # Số matches tối thiểu để phát hiện xoay
 
 
 def sift_extract(image):
-    # Trích xuất SIFT keypoints và descriptors bằng OpenCV.
     sift = cv2.SIFT_create()
     return sift.detectAndCompute(image, None)
 
@@ -59,7 +44,7 @@ def sift_match(desc1, desc2, kp1=None, kp2=None):
             if m.distance < RATIO_THRESHOLD * n.distance:
                 good.append(m)
                 
-    # Lọc bằng RANSAC (Geometric Verification) nếu có đủ keypoints và truyền kp1, kp2
+    # Lọc bằng RANSAC nếu có đủ keypoints và truyền kp1, kp2
     if kp1 is not None and kp2 is not None and len(good) >= 4:
         pts1 = np.float32([kp1[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
         pts2 = np.float32([kp2[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
@@ -163,15 +148,15 @@ def find_best_reference(user_gray, dataset_path, classes_to_search):
     if isinstance(classes_to_search, str):
         classes_to_search = [classes_to_search]
         
-    print(f"\n  [SIFT] Sẽ tìm ảnh mẫu tốt nhất trong {len(classes_to_search)} lớp...")
+    print(f"\n[SIFT] Sẽ tìm ảnh mẫu tốt nhất trong {len(classes_to_search)} lớp...")
 
     # SIFT trích xuất ảnh user
     kp_user, desc_user = sift_extract(user_gray)
     if desc_user is None or len(desc_user) < 2:
-        print("  [LỖI] Không trích xuất được SIFT từ ảnh user!")
+        print("[LỖI] Không trích xuất được SIFT từ ảnh user!")
         return None
 
-    print(f"  [SIFT] Ảnh user: {len(kp_user)} keypoints\n")
+    print(f"[SIFT] Ảnh user: {len(kp_user)} keypoints\n")
 
     best = None
     candidates_meta = []
@@ -184,7 +169,6 @@ def find_best_reference(user_gray, dataset_path, classes_to_search):
         display = DISPLAY_NAMES.get(class_name, class_name)
 
         for ref_path in ref_images:
-            # Load & preprocess reference
             ref_img = cv2.imread(ref_path)
             if ref_img is None:
                 continue
@@ -196,7 +180,7 @@ def find_best_reference(user_gray, dataset_path, classes_to_search):
             if desc_ref is None or len(desc_ref) < 2:
                 continue
 
-            # Sử dụng phiên bản SIFT match có tích hợp RANSAC (truyền kp_ref, kp_user)
+            # Sử dụng phiên bản SIFT match có tích hợp RANSAC
             good = sift_match(desc_ref, desc_user, kp_ref, kp_user)
             num = len(good)
 
@@ -204,7 +188,7 @@ def find_best_reference(user_gray, dataset_path, classes_to_search):
                 # KIỂM CHỨNG GÓC KÉP
                 _, votes = detect_rotation_angle(kp_ref, kp_user, good)
                 
-                print(f"    [{display}] {os.path.basename(ref_path):20s} | {num:3d} matches | {votes} votes")
+                print(f"[{display}] {os.path.basename(ref_path):20s} | {num:3d} matches | {votes} votes")
 
                 score = votes
                 
@@ -257,7 +241,7 @@ def find_best_reference(user_gray, dataset_path, classes_to_search):
         
         return best
     else:
-        print(f"\n  ✗ Không tìm thấy ảnh mẫu phù hợp (Thiếu điểm đồng thuận hình học)")
+        print(f"\n✗ Không tìm thấy ảnh mẫu phù hợp")
         return None
 
 
@@ -273,7 +257,7 @@ def predict_single(gray, kmeans, svm, label_names):
     
     # Format lại dữ liệu keypoints để truyền vào create_histograms hỗ trợ SPM
     kps_xy = np.array([kp.pt for kp in keypoints])
-    data = [{'keypoints': kps_xy, 'descriptors': descriptors}]
+    data = [{'keypoints': kps_xy, 'descriptors': descriptors, 'shape': gray.shape}]
     
     histogram = create_histograms(data, kmeans, k)
 
@@ -443,11 +427,11 @@ def save_pipeline_results(user_gray, corrected_gray, ref_info,
     cv2.imwrite(path_user, user_gray)
 
     # In danh sách file đã lưu
-    print(f"\n  📁 Kết quả đã lưu tại: {RESULTS_DIR}/")
+    print(f"\nKết quả đã lưu tại: {RESULTS_DIR}/")
     for f in sorted(os.listdir(RESULTS_DIR)):
         if f.startswith('pipeline_'):
             size = os.path.getsize(os.path.join(RESULTS_DIR, f)) / 1024
-            print(f"     {f:40s} ({size:.1f} KB)")
+            print(f"{f:40s} ({size:.1f} KB)")
 
 
 # PIPELINE CHÍNH
@@ -479,7 +463,7 @@ def full_pipeline(image_path, simulate_angle=None):
     img = cv2.resize(img, IMG_SIZE)
     user_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     original_gray = user_gray.copy()  # Lưu bản gốc (dùng cho SSIM nếu giả lập)
-    print(f"    OK — {user_gray.shape[1]}x{user_gray.shape[0]}")
+    print(f"OK — {user_gray.shape[1]}x{user_gray.shape[0]}")
 
     # Giả lập xoay (nếu có)
     if simulate_angle is not None and simulate_angle != 0:
@@ -489,7 +473,7 @@ def full_pipeline(image_path, simulate_angle=None):
 
     # BƯỚC 2: Dự đoán TRƯỚC khi chỉnh
     print(f"\n{'─' * 65}")
-    print("  BƯỚC 2: DỰ ĐOÁN TRƯỚC KHI CHỈNH (ẢNH GỐC CỦA USER)")
+    print("BƯỚC 2: DỰ ĐOÁN TRƯỚC KHI CHỈNH (ẢNH GỐC CỦA USER)")
     print(f"{'─' * 65}")
 
     result_before = predict_single(user_gray, kmeans, svm, label_names)
@@ -505,13 +489,12 @@ def full_pipeline(image_path, simulate_angle=None):
     print(f"{'─' * 65}")
 
     # Truyền tất cả các lớp vào hàm SIFT matching thay vì chỉ lớp có xác suất cao nhất
-    # Điều này giúp SIFT tự tìm ra lớp thực sự của ảnh thông qua số lượng match nhiều nhất
     classes_to_search = list(result_before['all_proba'].keys())
     ref_info = find_best_reference(user_gray, DATASET_PATH, classes_to_search)
 
     if ref_info is None:
-        print("\n  → Không tìm được ảnh mẫu phù hợp.")
-        print("  → Giữ nguyên kết quả dự đoán ban đầu.")
+        print("\n→ Không tìm được ảnh mẫu phù hợp.")
+        print("→ Giữ nguyên kết quả dự đoán ban đầu.")
         print_comparison(result_before, result_before, None, simulate_angle)
         return
 
@@ -524,36 +507,36 @@ def full_pipeline(image_path, simulate_angle=None):
         print(f"\n  ⚠️ Rotation không đáng tin (góc: {detected_angle or 0:.1f}°, votes: {votes}) → BỎ QUA XOAY ẢNH.")
         print_comparison(result_before, result_before, None, simulate_angle)
         
-        # Lưu kết quả kể cả khi bỏ qua xoay (để xem được SIFT matches và Panel gốc)
+        # Lưu kết quả kể cả khi bỏ qua xoay
         save_pipeline_results(
             user_gray, user_gray, ref_info,
             result_before, result_before, detected_angle or 0.0
         )
         return
 
-    print(f"\n  Góc xoay phát hiện: {detected_angle:+.1f}°")
-    print(f"  Votes: {votes}/{len(ref_info['good_matches'])} good matches")
+    print(f"\nGóc xoay phát hiện: {detected_angle:+.1f}°")
+    print(f"Votes: {votes}/{len(ref_info['good_matches'])} good matches")
 
     # BƯỚC 4: Chỉnh xoay ảnh
     print(f"\n{'─' * 65}")
-    print("  BƯỚC 4: CHỈNH XOAY ẢNH")
+    print("BƯỚC 4: CHỈNH XOAY ẢNH")
     print(f"{'─' * 65}")
 
     correction = -detected_angle
     corrected_gray = rotate_image(user_gray, correction)
-    print(f"  ↻ Xoay ảnh {correction:+.1f}° (ngược lại góc phát hiện {detected_angle:+.1f}°)")
+    print(f"↻ Xoay ảnh {correction:+.1f}° (ngược lại góc phát hiện {detected_angle:+.1f}°)")
 
     # SSIM (so sánh với ảnh gốc trước khi giả lập xoay)
     if simulate_angle is not None and simulate_angle != 0:
         ssim_before = compute_ssim(original_gray, user_gray)
         ssim_after = compute_ssim(original_gray, corrected_gray)
-        print(f"  📏 SSIM (so với ảnh gốc) trước chỉnh: {ssim_before:.4f}")
-        print(f"  📏 SSIM (so với ảnh gốc) sau chỉnh:   {ssim_after:.4f} "
+        print(f"SSIM (so với ảnh gốc) trước chỉnh: {ssim_before:.4f}")
+        print(f"SSIM (so với ảnh gốc) sau chỉnh: {ssim_after:.4f} "
               f"({ssim_after - ssim_before:+.4f})")
 
     # BƯỚC 5: Dự đoán SAU khi chỉnh
     print(f"\n{'─' * 65}")
-    print("  BƯỚC 5: DỰ ĐOÁN SAU KHI CHỈNH SIFT")
+    print("BƯỚC 5: DỰ ĐOÁN SAU KHI CHỈNH SIFT")
     print(f"{'─' * 65}")
 
     result_after = predict_single(corrected_gray, kmeans, svm, label_names)

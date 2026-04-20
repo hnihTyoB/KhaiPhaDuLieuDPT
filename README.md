@@ -22,11 +22,21 @@ Hệ thống nhận diện địa danh tích hợp luồng tiền xử lý tự 
 
 ## 🛠 Cài đặt môi trường
 
-Yêu cầu Python >= 3.9
+Yêu cầu: **Python >= 3.9**
 
-```bash
-pip install opencv-python numpy scikit-learn customtkinter Pillow matplotlib seaborn
-```
+### 🪟 Đối với Windows
+1. Mở Terminal (Command Prompt hoặc PowerShell).
+2. Cài đặt các thư viện yêu cầu:
+   ```cmd
+   pip install opencv-python numpy scikit-learn customtkinter Pillow matplotlib seaborn
+   ```
+
+### 🍎 Đối với macOS / Linux
+1. Mở Terminal.
+2. Cài đặt các thư viện yêu cầu:
+   ```bash
+   pip3 install opencv-python numpy scikit-learn customtkinter Pillow matplotlib seaborn
+   ```
 
 ---
 
@@ -80,7 +90,7 @@ Nên dùng ảnh mới (không nằm trong dataset) để test khách quan
 
 **Nhóm 4 - D22CQPTUD01-N**
 
-- Nguyễn Chí Thịnh (N22DCPT089) - Nhóm trưởng
+- Nguyễn Chí Thịnh (N22DCPT089)
 - Huỳnh Thanh Trà (N22DCPT097)
 - Tô Duy Hào (N22DCPT025)
 

@@ -269,7 +269,7 @@ class LandmarkDashboard(ctk.CTk):
             from landmark_sift_bovw import MODEL_DIR
             cm_path = os.path.join(MODEL_DIR, 'confusion_matrix.png')
             if not os.path.exists(cm_path):
-                self.log_msg("LỖI: Không tìm thấy ảnh Ma trận nhầm lẫn. Bác hãy thử Train dữ liệu lại 1 lần nhé.")
+                self.log_msg("LỖI: Không tìm thấy ảnh Ma trận nhầm lẫn.")
                 return
             self.open_saved_image(cm_path, "Ma trận nhầm lẫn (Confusion Matrix)")
         except Exception as e:
@@ -487,20 +487,21 @@ class LandmarkDashboard(ctk.CTk):
         
         self.btn_train.configure(state="disabled", text="⏳ Training...")
         self.btn_run.configure(state="disabled")
+        self.btn_cm.configure(state="disabled")
         threading.Thread(target=self.execute_training, daemon=True).start()
         
     def execute_training(self):
         from landmark_sift_bovw import train_pipeline
         self.log_msg("==============================")
         self.log_msg("ĐANG BẮT ĐẦU HUẤN LUYỆN MÔ HÌNH NHẬN DIỆN")
-        self.log_msg("Xem chi tiết trích xuất đặc trưng SIFT ở màn hình Terminal đen.")
+        self.log_msg("Xem chi tiết trích xuất đặc trưng SIFT ở màn hình Terminal.")
         try:
             success = train_pipeline()
             if success:
                 self.log_msg("QUÁ TRÌNH HUẤN LUYỆN HOÀN TẤT!")
                 self.log_msg("Đang tải nạp tự động mô hình mới vào GUI...")
                 self.init_models()
-                messagebox.showinfo("Thành công", "Huấn luyện dữ liệu thành công! Ứng dụng đã reload AI model mới nhất.")
+                messagebox.showinfo("Thành công", "Huấn luyện dữ liệu thành công!")
             else:
                 self.log_msg("Huấn luyện gặp lỗi, hãy xem log chi tiết.")
         except Exception as e:
@@ -508,6 +509,7 @@ class LandmarkDashboard(ctk.CTk):
         finally:
             self.btn_train.configure(state="normal", text="TRAIN")
             self.btn_run.configure(state="normal")
+            self.btn_cm.configure(state="normal")
 
     # CHẠY PIPELINE
     def run_pipeline_thread(self):
@@ -547,7 +549,7 @@ class LandmarkDashboard(ctk.CTk):
             cv2.imwrite(path_user_out, user_gray)
             
             if ref_info is None:
-                self.log_msg("LỖI: SIFT Không tìm thấy ảnh mẫu phù hợp (Thiếu điểm đồng thuận).")
+                self.log_msg("LỖI: SIFT Không tìm thấy ảnh mẫu phù hợp.")
                 self.col2_pred.configure(text="KHÔNG TÌM THẤY ẢNH MẪU", text_color="#e74c3c")
                 
                 # Xóa ảnh SIFT matching nếu không có

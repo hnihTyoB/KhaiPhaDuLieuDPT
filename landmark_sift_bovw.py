@@ -10,23 +10,21 @@ from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 import matplotlib
-matplotlib.use('Agg')  # Backend không cần GUI, phù hợp mọi môi trường
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import seaborn as sns
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
-# =============================================================================
-# ⚙️ THAM SỐ QUAN TRỌNG (CẤU HÌNH)
-# =============================================================================
-DATASET_PATH = 'dataset'                # Cấu trúc: dataset/<tên_lớp>/<ảnh>
-IMG_SIZE = (512, 512)                   # Tăng kích thước để giữ chi tiết gạch/cột
-K_CLUSTERS = 600                        # Tăng cụm K-Means cho đa dạng đặc trưng (Parthenon, Đức Bà)
-SVM_KERNEL = 'linear'                   # Kernel SVM: 'linear' phù hợp BoVW histogram
-SVM_C = 1.0                             # Tham số C của SVM
-TEST_SPLIT_RATIO = 0.2                  # Tỉ lệ tập test (80/20)
-RANDOM_STATE = 42                       # Seed cho kết quả tái lập
-CONFIDENCE_THRESHOLD = 0.15             # Ngưỡng confidence (dưới = "Không xác định")
+# THAM SỐ QUAN TRỌNG (CẤU HÌNH)
+DATASET_PATH = 'dataset'                
+IMG_SIZE = (512, 512)                   
+K_CLUSTERS = 600                        
+SVM_KERNEL = 'linear'                   
+SVM_C = 1.0                             
+TEST_SPLIT_RATIO = 0.2                  
+RANDOM_STATE = 42 # Seed cho kết quả tái lập
+CONFIDENCE_THRESHOLD = 0.15 # Ngưỡng confidence (dưới = "Không xác định")
 
 # Đường dẫn lưu/tải mô hình
 MODEL_DIR = 'models'
@@ -34,7 +32,6 @@ KMEANS_MODEL_PATH = os.path.join(MODEL_DIR, 'kmeans_model.pkl')
 SVM_MODEL_PATH = os.path.join(MODEL_DIR, 'svm_model.pkl')
 LABEL_NAMES_PATH = os.path.join(MODEL_DIR, 'label_names.pkl')
 
-# Tên hiển thị cho các lớp
 DISPLAY_NAMES = {
     'chuamotcot': 'Chùa Một Cột (Việt Nam)',
     'thaprua': 'Tháp Rùa - Hồ Gươm (Việt Nam)',
@@ -52,8 +49,7 @@ DISPLAY_NAMES = {
     'arcdetriomphe': 'Khải Hoàn Môn (Pháp)',
 }
 
-
-# Lớp cần bỏ qua khi huấn luyện (quá chung chung, không phải địa danh cụ thể)
+# Lớp cần bỏ qua khi huấn luyện
 EXCLUDE_CLASSES = ['nuthantudo', 'parthenon', 'thaprua', 'nhathoducba']
 
 # TIỀN XỬ LÝ ẢNH
@@ -71,7 +67,7 @@ def load_and_preprocess(image_path):
     new_w, new_h = int(w * scale), int(h * scale)
     img_resized = cv2.resize(img, (new_w, new_h))
 
-    # Chuyển sang grayscale (KHÔNG padding để tránh đường viền đen tạo keypoint giả)
+    # Chuyển sang grayscale
     gray = cv2.cvtColor(img_resized, cv2.COLOR_BGR2GRAY)
 
     return gray
@@ -95,7 +91,7 @@ def extract_sift_descriptors(image):
 
 def load_dataset_and_extract_sift(dataset_path):
     print("\n" + "=" * 60)
-    print(" BƯỚC 1-3: TẢI DỮ LIỆU VÀ TRÍCH XUẤT SIFT")
+    print("BƯỚC 1-3: TẢI DỮ LIỆU VÀ TRÍCH XUẤT SIFT")
     print("=" * 60)
 
     if not os.path.exists(dataset_path):
@@ -153,10 +149,10 @@ def load_dataset_and_extract_sift(dataset_path):
                 labels.append(label_name)
                 count += 1
             else:
-                print(f"     [SKIP] {img_file} — không tìm thấy keypoints")
+                print(f"[SKIP] {img_file} — không tìm thấy keypoints")
                 skipped += 1
 
-        print(f"     ✓ {count} ảnh có descriptors | keypoints tổng: {sum(len(d['descriptors']) for d in image_data_list[-count:]) if count > 0 else 0}")
+        print(f"✓ {count} ảnh có descriptors | keypoints tổng: {sum(len(d['descriptors']) for d in image_data_list[-count:]) if count > 0 else 0}")
 
     print(f"\n[KẾT QUẢ] Tổng descriptors: {len(all_descriptors)} | "
           f"Tổng ảnh hợp lệ: {len(image_data_list)} | Bỏ qua: {skipped}")
@@ -182,7 +178,7 @@ def load_dataset_and_extract_sift(dataset_path):
 # XÂY DỰNG BAG OF VISUAL WORDS (BoVW)
 def build_visual_vocabulary(all_descriptors, k):
     print("\n" + "=" * 60)
-    print(f" BƯỚC 4.1: XÂY DỰNG TỪ ĐIỂN THỊ GIÁC (K-Means, K={k})")
+    print(f"BƯỚC 4.1: XÂY DỰNG TỪ ĐIỂN THỊ GIÁC (K-Means, K={k})")
     print("=" * 60)
 
     print(f"[INFO] Đang phân cụm {len(all_descriptors)} descriptors thành {k} cụm...")
@@ -214,7 +210,7 @@ def create_histograms(image_data_list, kmeans_model, k):
         descriptors = data['descriptors']
         keypoints = data['keypoints']
         
-        # Động lấy kích thước thực của ảnh đang xét (không gán cứng cục bộ)
+        # Động lấy kích thước thực của ảnh đang xét
         h, w = data['shape']
         half_w = w / 2.0
         half_h = h / 2.0
@@ -255,14 +251,13 @@ def create_histograms(image_data_list, kmeans_model, k):
 # HUẤN LUYỆN MÔ HÌNH SVM
 def train_svm(features, labels, label_names, kernel):
     print("\n" + "=" * 60)
-    print(" BƯỚC 5: HUẤN LUYỆN MÔ HÌNH SVM")
+    print("BƯỚC 5: HUẤN LUYỆN MÔ HÌNH SVM")
     print("=" * 60)
 
     # Chuyển nhãn text → số
     label_to_idx = {name: idx for idx, name in enumerate(label_names)}
     numeric_labels = np.array([label_to_idx[lbl] for lbl in labels])
 
-    # Chia train/test (80/20)
     print(f"[INFO] Chia dữ liệu: {int((1 - TEST_SPLIT_RATIO) * 100)}% train / {int(TEST_SPLIT_RATIO * 100)}% test")
 
     # Kiểm tra số lượng mẫu mỗi lớp
@@ -295,7 +290,7 @@ def train_svm(features, labels, label_names, kernel):
     svm.fit(X_train, y_train)
     print("[OK] SVM huấn luyện thành công!")
 
-    # ===== ĐÁNH GIÁ =====
+    # ĐÁNH GIÁ
     print("\n" + "-" * 40)
     print("ĐÁNH GIÁ HỆ THỐNG")
     print("-" * 40)
@@ -321,6 +316,7 @@ def train_svm(features, labels, label_names, kernel):
 
 
 def plot_confusion_matrix(cm, class_names):
+    os.makedirs(MODEL_DIR, exist_ok=True)
     output_path = os.path.join(MODEL_DIR, 'confusion_matrix.png')
 
     plt.figure(figsize=(8, 6))
@@ -363,7 +359,7 @@ def load_models():
     required = [KMEANS_MODEL_PATH, SVM_MODEL_PATH, LABEL_NAMES_PATH]
     if not all(os.path.exists(p) for p in required):
         print("[LỖI] Chưa tìm thấy mô hình đã huấn luyện!")
-        print("       → Vui lòng chọn chế độ Huấn luyện (option 1) trước.")
+        print("→ Vui lòng chọn chế độ Huấn luyện (option 1) trước.")
         return None, None, None
 
     with open(KMEANS_MODEL_PATH, 'rb') as f:
@@ -377,15 +373,15 @@ def load_models():
     return kmeans, svm, label_names
 
 
-# QUY TRÌNH HUẤN LUYỆN (TRAINING PIPELINE)
+# QUY TRÌNH HUẤN LUYỆN
 def train_pipeline():
     print("\n" + "█" * 60)
-    print("GIAI ĐOẠN HUẤN LUYỆN (TRAINING PHASE)")
+    print("GIAI ĐOẠN HUẤN LUYỆN")
     print("█" * 60)
 
     if not os.path.exists(DATASET_PATH):
         print(f"[LỖI] Thư mục '{DATASET_PATH}' không tồn tại!")
-        print(f"       Vui lòng tạo thư mục dataset với ảnh thật.")
+        print(f"Vui lòng tạo thư mục dataset với ảnh thật.")
         return False
 
     # Bước 1-3: Tải dữ liệu + SIFT
@@ -397,20 +393,19 @@ def train_pipeline():
         return False
 
     # Bước 4.1: K-Means clustering
-    # Điều chỉnh K nếu số descriptor ít hơn K
     actual_k = min(K_CLUSTERS, len(all_descriptors))
     if actual_k < K_CLUSTERS:
         print(f"[WARN] Số descriptors ({len(all_descriptors)}) < K ({K_CLUSTERS}). "
               f"Điều chỉnh K = {actual_k}")
     kmeans = build_visual_vocabulary(all_descriptors, actual_k)
 
-    # Bước 4.2: Tạo histograms (đã L2 normalize, KHÔNG cần StandardScaler)
+    # Bước 4.2: Tạo histograms
     histograms = create_histograms(image_data_list, kmeans, actual_k)
 
-    # Bước 5: Huấn luyện SVM + đánh giá (probability=False, không scaler)
+    # Bước 5: Huấn luyện SVM + đánh giá
     svm, accuracy = train_svm(histograms, labels, label_names, SVM_KERNEL)
 
-    # Bước 6: Lưu mô hình (không có scaler)
+    # Bước 6: Lưu mô hình
     save_models(kmeans, svm, label_names)
 
     print("\n" + "█" * 60)
@@ -420,11 +415,11 @@ def train_pipeline():
     return True
 
 
-# DỰ ĐOÁN ẢNH MỚI (INFERENCE)
+# DỰ ĐOÁN ẢNH MỚI
 def predict_image(image_path):
     print(f"\n--- DỰ ĐOÁN cho ảnh: {image_path} ---")
 
-    # Tải models (không có scaler)
+    # Tải models
     kmeans, svm, label_names = load_models()
     if kmeans is None:
         return
@@ -451,7 +446,7 @@ def predict_image(image_path):
     data = [{'keypoints': kps_xy, 'descriptors': descriptors, 'shape': gray.shape}]
     histogram = create_histograms(data, kmeans, k)
 
-    # Bước 8: SVM dự đoán (chỉ dùng predict_proba để đảm bảo đồng nhất % cao nhất)
+    # Bước 8: SVM dự đoán
     pred_proba = svm.predict_proba(histogram)[0]
     pred_idx = np.argmax(pred_proba)
     pred_label = label_names[pred_idx]
@@ -459,7 +454,7 @@ def predict_image(image_path):
 
     # Kiểm tra ngưỡng confidence
     if confidence < CONFIDENCE_THRESHOLD:
-        display_name = "⚠️  KHÔNG XÁC ĐỊNH (ảnh không thuộc lớp nào đã học)"
+        display_name = "KHÔNG XÁC ĐỊNH (ảnh không thuộc lớp nào đã học)"
     else:
         display_name = DISPLAY_NAMES.get(pred_label, pred_label)
 
@@ -469,9 +464,9 @@ def predict_image(image_path):
     print(f"ĐỘ TIN CẬY:   {confidence:.2%}")
     print(f"SỐ KEYPOINTS: {len(descriptors)}")
     if confidence < CONFIDENCE_THRESHOLD:
-        print(f"GHI CHÚ:      Confidence < {CONFIDENCE_THRESHOLD:.0%} → Không xác định")
+        print(f"GHI CHÚ: Confidence < {CONFIDENCE_THRESHOLD:.0%} → Không xác định")
     print("─" * 55)
-    print(" XÁC SUẤT CHO TỪNG LỚP:")
+    print("XÁC SUẤT CHO TỪNG LỚP:")
     for i, name in enumerate(label_names):
         display = DISPLAY_NAMES.get(name, name)
         bar = "█" * int(pred_proba[i] * 30)
@@ -509,12 +504,6 @@ def predict_image(image_path):
 
 # DEMO TỰ ĐỘNG
 def demo_auto():
-    """
-    Chạy demo tự động:
-    1. Tạo dataset giả lập (nếu chưa có)
-    2. Huấn luyện mô hình
-    3. Dự đoán trên 1 ảnh mẫu từ dataset
-    """
     print("\n" + "★" * 60)
     print("DEMO TỰ ĐỘNG — HUẤN LUYỆN + DỰ ĐOÁN")
     print("★" * 60)
@@ -551,7 +540,7 @@ def demo_auto():
 def main():
     while True:
         print("\n" + "=" * 60)
-        print(" PHÂN LOẠI ẢNH ĐỊA DANH — SIFT + K-MEANS + SVM")
+        print("PHÂN LOẠI ẢNH ĐỊA DANH — SIFT + K-MEANS + SVM")
         print("=" * 60)
         print(f"""
     Cấu hình hiện tại:
@@ -561,19 +550,19 @@ def main():
     • SVM Kernel:     {SVM_KERNEL}
     • Train/Test:     {int((1 - TEST_SPLIT_RATIO) * 100)}/{int(TEST_SPLIT_RATIO * 100)}
         """)
-        print(" [1] Huấn luyện mô hình")
-        print(" [2] Dự đoán ảnh mới")
-        print(" [3] Demo tự động (Huấn luyện + Dự đoán)")
-        print(" [0] Thoát")
+        print("[1] Huấn luyện mô hình")
+        print("[2] Dự đoán ảnh mới")
+        print("[3] Demo tự động (Huấn luyện + Dự đoán)")
+        print("[0] Thoát")
         print("-" * 60)
 
-        choice = input(" Lựa chọn (0-3): ").strip()
+        choice = input("Lựa chọn (0-3): ").strip()
 
         if choice == '1':
             train_pipeline()
 
         elif choice == '2':
-            image_path = input("\n Nhập đường dẫn ảnh: ").strip()
+            image_path = input("\nNhập đường dẫn ảnh: ").strip()
             if image_path:
                 predict_image(image_path)
             else:
@@ -589,7 +578,5 @@ def main():
         else:
             print("[WARN] Lựa chọn không hợp lệ! Vui lòng chọn 0-3.")
 
-
-# ĐIỂM VÀO CHƯƠNG TRÌNH
 if __name__ == '__main__':
     main()

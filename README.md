@@ -50,7 +50,7 @@ python gui_dashboard.py
 
 ### 2. Huấn luyện (TRAIN)
 
-- Nhấn nút **TRAIN**
+- Nhấn nút **TRAIN** nếu chưa có models
 - Hệ thống sẽ:
   - Trích xuất SIFT
   - Train K-Means + SVM
@@ -59,10 +59,10 @@ python gui_dashboard.py
 
 ### 3. Chọn ảnh
 
-- Nhấn **CHỌN ẢNH**
+- Nhấn **CHỌN ẢNH** trong thư mục test_images
 
 **Lưu ý:**
-Nên dùng ảnh mới (không nằm trong dataset) để test khách quan
+Không nên dùng ảnh nằm trong dataset để test khách quan
 
 ### 4. Nhận diện
 

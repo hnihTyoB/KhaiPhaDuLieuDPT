@@ -22,7 +22,7 @@ from landmark_sift_bovw import (
 RESULTS_DIR = os.path.abspath('results_pipeline')
 RATIO_THRESHOLD = 0.75 # Ngưỡng Lowe's ratio test
 NUM_REF_PER_CLASS = 40 # Số ảnh tham chiếu trên mỗi lớp
-MIN_GOOD_MATCHES = 6 # Số matches tối thiểu để phát hiện xoay
+MIN_GOOD_MATCHES = 11 # Số matches tối thiểu để phát hiện xoay
 
 
 def sift_extract(image):
@@ -504,7 +504,7 @@ def full_pipeline(image_path, simulate_angle=None):
     )
 
     if detected_angle is None or votes < 5 or (abs(detected_angle) > 135 and votes < 8):
-        print(f"\n  ⚠️ Rotation không đáng tin (góc: {detected_angle or 0:.1f}°, votes: {votes}) → BỎ QUA XOAY ẢNH.")
+        print(f"\nRotation không đáng tin (góc: {detected_angle or 0:.1f}°, votes: {votes}) → BỎ QUA XOAY ẢNH.")
         print_comparison(result_before, result_before, None, simulate_angle)
         
         # Lưu kết quả kể cả khi bỏ qua xoay

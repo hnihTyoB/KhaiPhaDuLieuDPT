@@ -7,7 +7,7 @@ Hệ thống nhận diện địa danh tích hợp luồng tiền xử lý tự 
 ## 📌 Tính năng chính
 
 - **Trích xuất đặc trưng bất biến:**
-  Sử dụng SIFT để tìm các điểm đặc trưng không thay đổi dưới tác động xoay và scale.
+  Sử dụng SIFT để tìm các điểm đặc trưng không thay đổi dưới tác động xoay.
 
 - **Mô hình BoVW & SPM:**
   Chuyển đặc trưng cục bộ thành vector histogram cố định, kết hợp Spatial Pyramid Matching (1x1 và 2x2) để giữ thông tin không gian.
@@ -68,8 +68,10 @@ Không nên dùng ảnh nằm trong dataset để test khách quan
 
 - Nhấn **NHẬN DIỆN**
 - Hệ thống sẽ:
-  - Tự xoay ảnh về đúng góc
-  - Dự đoán label
+  - Dự đoán label ban đầu
+  - Tự xoay ảnh về đúng góc (nếu có thể)
+  - Dự đoán label sau khi xoay
+  - Lưu kết quả vào thư mục results_pipeline
 
 ---
 

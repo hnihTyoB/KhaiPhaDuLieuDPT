@@ -1,0 +1,20 @@
+# Ignore dataset files
+dataset/
+dataset.zip
+test_images/
+
+# Ignore generated ML models
+models/
+
+# Ignore pipeline output results
+results_pipeline/
+
+# Ignore Python virtual environment and cache
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Ignore IDE settings
+.vscode/
+.idea/

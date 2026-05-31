@@ -560,8 +560,7 @@ def full_pipeline(image_path, simulate_angle=None):
 def main():
     while True:
         print("\n" + "=" * 65)
-        print("SIFT LANDMARK PIPELINE")
-        print("Tiền xử lý ảnh bằng SIFT + Nhận dạng địa danh")
+        print("SIFT LANDMARK PIPELINE — TỰ XOAY CHỈNH VÀ NHẬN DIỆN")
         print("=" * 65)
         print(f"""
   Mô tả:
@@ -573,24 +572,20 @@ def main():
      • Models:      models/
      • Kết quả:     {RESULTS_DIR}/
         """)
-        print("[1] Huấn luyện mô hình")
-        print("[2] Nhận dạng ảnh (có SIFT preprocessing)")
+        print("[1] Chạy Pipeline nhận diện ảnh tự sửa góc (Nhập đường dẫn thủ công)")
         print("[0] Thoát")
         print("-" * 65)
 
-        choice = input("Lựa chọn (0-2): ").strip()
+        choice = input("Lựa chọn (0-1): ").strip()
 
         if choice == '1':
-            train_pipeline()
-
-        elif choice == '2':
-            image_path = input("\n Nhập đường dẫn ảnh: ").strip().strip('"').strip("'")
+            image_path = input("\nNhập đường dẫn ảnh: ").strip().strip('"').strip("'")
             if not image_path:
                 print("[WARN] Đường dẫn không hợp lệ!")
                 continue
 
             # Hỏi có muốn giả lập xoay không
-            sim = input(" Giả lập xoay? Nhập góc (hoặc Enter để bỏ qua): ").strip()
+            sim = input("Giả lập xoay? Nhập góc lệch (hoặc Enter để bỏ qua): ").strip()
             simulate_angle = None
             if sim:
                 try:
@@ -601,11 +596,11 @@ def main():
             full_pipeline(image_path, simulate_angle)
 
         elif choice == '0':
-            print("\n Tạm biệt!")
+            print("\nTạm biệt!")
             break
 
         else:
-            print("[WARN] Lựa chọn không hợp lệ! Vui lòng chọn 0-2.")
+            print("[WARN] Lựa chọn không hợp lệ! Vui lòng chọn 0-1.")
 
 
 if __name__ == '__main__':

@@ -502,40 +502,6 @@ def predict_image(image_path):
         print(f"[INFO] Lỗi trong quá trình xuất ảnh dự đoán: {e}")
 
 
-# DEMO TỰ ĐỘNG
-def demo_auto():
-    print("\n" + "★" * 60)
-    print("DEMO TỰ ĐỘNG — HUẤN LUYỆN + DỰ ĐOÁN")
-    print("★" * 60)
-
-    # Huấn luyện
-    success = train_pipeline()
-    if not success:
-        print("[LỖI] Huấn luyện thất bại — không thể demo.")
-        return
-
-    # Tìm ảnh mẫu để dự đoán
-    print("\n\n" + "★" * 60)
-    print("DỰ ĐOÁN TRÊN ẢNH MẪU")
-    print("★" * 60)
-
-    sample_image = None
-    if os.path.exists(DATASET_PATH):
-        for class_dir in sorted(os.listdir(DATASET_PATH)):
-            class_path = os.path.join(DATASET_PATH, class_dir)
-            if os.path.isdir(class_path):
-                images = [f for f in os.listdir(class_path)
-                          if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
-                if images:
-                    sample_image = os.path.join(class_path, images[0])
-                    break
-
-    if sample_image:
-        predict_image(sample_image)
-    else:
-        print("[LỖI] Không tìm thấy ảnh mẫu để demo.")
-
-
 # HÀM CHÍNH — MENU CONSOLE
 def main():
     while True:
@@ -551,32 +517,28 @@ def main():
     • Train/Test:     {int((1 - TEST_SPLIT_RATIO) * 100)}/{int(TEST_SPLIT_RATIO * 100)}
         """)
         print("[1] Huấn luyện mô hình")
-        print("[2] Dự đoán ảnh mới")
-        print("[3] Demo tự động (Huấn luyện + Dự đoán)")
+        print("[2] Dự đoán ảnh mới (Nhập đường dẫn bằng tay)")
         print("[0] Thoát")
         print("-" * 60)
 
-        choice = input("Lựa chọn (0-3): ").strip()
+        choice = input("Lựa chọn (0-2): ").strip()
 
         if choice == '1':
             train_pipeline()
 
         elif choice == '2':
-            image_path = input("\nNhập đường dẫn ảnh: ").strip()
+            image_path = input("\nNhập đường dẫn ảnh: ").strip().strip('"').strip("'")
             if image_path:
                 predict_image(image_path)
             else:
                 print("[WARN] Đường dẫn không hợp lệ!")
-
-        elif choice == '3':
-            demo_auto()
 
         elif choice == '0':
             print("\nTạm biệt! Hẹn gặp lại.")
             break
 
         else:
-            print("[WARN] Lựa chọn không hợp lệ! Vui lòng chọn 0-3.")
+            print("[WARN] Lựa chọn không hợp lệ! Vui lòng chọn 0-2.")
 
 if __name__ == '__main__':
     main()

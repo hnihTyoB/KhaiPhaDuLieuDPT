@@ -107,36 +107,23 @@ Bộ dữ liệu huấn luyện địa danh của dự án được lưu trữ d
 
 ## 🚀 Hướng dẫn sử dụng
 
-### 1. Chạy ứng dụng
-
+### 1. Chạy trên máy tính cá nhân (Giao diện GUI)
+Kích hoạt giao diện bảng điều khiển Dashboard tương tác bằng lệnh:
 ```bash
 python gui_dashboard.py
 ```
 
-### 2. Huấn luyện (TRAIN)
+* **Huấn luyện (TRAIN)**: Nhấn nút **TRAIN** trên bảng điều khiển nếu chưa có mô hình. Hệ thống sẽ trích xuất SIFT và huấn luyện K-Means + SVM. Mô hình sau khi huấn luyện xong tự động được lưu trữ vào thư mục `models/`.
+* **Chọn ảnh kiểm thử**: Nhấn nút **CHỌN ẢNH** và chọn một ảnh kiểm thử bất kỳ trong thư mục `test_images/` (ảnh ngoài dataset huấn luyện) để kiểm tra tính khách quan.
+* **Nhận diện**: Nhấn nút **NHẬN DIỆN**. Hệ thống tự động thực hiện: Dự đoán nhãn ban đầu -> Tìm ảnh mẫu khớp đặc trưng -> Tự xoay ảnh về đúng góc thẳng đứng -> Dự đoán lại nhãn sau chỉnh -> Xuất biểu đồ so sánh chi tiết lưu vào thư mục `results_pipeline/`.
 
-- Nhấn nút **TRAIN** nếu chưa có models
-- Hệ thống sẽ:
-  - Trích xuất SIFT
-  - Train K-Means + SVM
-
-- Model sẽ lưu trong thư mục `models/`
-
-### 3. Chọn ảnh
-
-- Nhấn **CHỌN ẢNH** trong thư mục test_images
-
-**Lưu ý:**
-Không nên dùng ảnh nằm trong dataset để test khách quan
-
-### 4. Nhận diện
-
-- Nhấn **NHẬN DIỆN**
-- Hệ thống sẽ:
-  - Dự đoán label ban đầu
-  - Tự xoay ảnh về đúng góc (nếu có thể)
-  - Dự đoán label sau khi xoay
-  - Lưu kết quả vào thư mục results_pipeline
+### 2. Chạy trên Google Colab (Notebook)
+Dự án tích hợp sẵn file Notebook [sift_landmark_colab.ipynb](file:///d:/Python/Projects/KhaiPhaDuLieu/Nhom4_Project/sift_landmark_colab.ipynb) được tối ưu hóa để huấn luyện và nhận diện đầy đủ trên đám mây:
+1. Tải file `dataset.zip` từ đường dẫn Google Drive ở trên về máy tính cá nhân.
+2. Tải file `dataset.zip` đó lên **thư mục gốc** của Google Drive cá nhân của bạn (mục **Drive của tôi** / **My Drive**).
+3. Truy cập [Google Colab](https://colab.research.google.com/).
+4. Chọn thẻ **Tải lên (Upload)** và tải file `sift_landmark_colab.ipynb` từ thư mục máy tính của bạn lên.
+5. Tiến hành chạy tuần tự các ô code từ **Bước 1** đến **Bước 7** theo hướng dẫn chi tiết trong Notebook để nhận kết quả trực quan hóa.
 
 ---
 

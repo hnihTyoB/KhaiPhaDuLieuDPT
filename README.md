@@ -91,7 +91,7 @@ Dự án này sử dụng **Git LFS** để quản lý các file ảnh lớn (tr
 
 ## 📦 Dữ liệu (Dataset)
 Bộ dữ liệu huấn luyện địa danh của dự án được lưu trữ dưới dạng file nén `dataset.zip` và chia sẻ công khai:
-* **Link tải xuống**: [dataset.zip (Google Drive)](https://drive.google.com/file/d/1ALsVGOSsNgeNA502QJhKw55Qr-ril13p/view?usp=sharing)
+* **Link tải xuống**: [dataset.zip (Google Drive)](https://drive.google.com/file/d/1SZepSgLzSte3b7ktNxRfcuXe7dKvymRh/view?usp=sharing)
 
 ### 📂 Hướng dẫn lưu trữ chi tiết:
 

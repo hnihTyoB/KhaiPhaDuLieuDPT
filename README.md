@@ -22,7 +22,7 @@ Hệ thống nhận diện địa danh tích hợp luồng tiền xử lý tự 
 
 ---
 
-## 📌 Tính năng chính
+## Tính năng chính
 
 - **Trích xuất đặc trưng bất biến:**
   Sử dụng SIFT để tìm các điểm đặc trưng không thay đổi dưới tác động xoay.
@@ -38,11 +38,11 @@ Hệ thống nhận diện địa danh tích hợp luồng tiền xử lý tự 
 
 ---
 
-## 🛠 Cài đặt môi trường
+## Cài đặt môi trường
 
 Yêu cầu: **Python >= 3.9**
 
-### 🍎 Đối với macOS / Linux
+### Đối với macOS / Linux
 Trên macOS (đặc biệt là các phiên bản mới sử dụng Homebrew Python), việc cài đặt thư viện trực tiếp có thể gặp lỗi `externally-managed-environment`. Vì vậy, khuyến nghị sử dụng môi trường ảo (`venv`):
 
 1. Mở Terminal và di chuyển vào thư mục dự án.
@@ -60,7 +60,7 @@ Trên macOS (đặc biệt là các phiên bản mới sử dụng Homebrew Pyth
    pip install -r requirements.txt
    ```
 
-### 🪟 Đối với Windows
+### Đối với Windows
 Bạn có thể cài đặt trực tiếp hoặc sử dụng môi trường ảo để quản lý thư viện sạch sẽ:
 
 **Cách 1: Sử dụng môi trường ảo (Khuyến nghị)**
@@ -91,7 +91,7 @@ Bạn có thể cài đặt trực tiếp hoặc sử dụng môi trường ảo
    pip install -r requirements.txt
    ```
 
-### ⚠️ Lưu ý quan trọng về Git LFS (Large File Storage)
+### Lưu ý quan trọng về Git LFS (Large File Storage)
 Dự án này sử dụng **Git LFS** để quản lý các file ảnh lớn (trong thư mục `test_images` và `dataset`). Nếu bạn chỉ clone dự án bằng lệnh `git clone` thông thường mà không cài đặt Git LFS, các file ảnh sẽ chỉ là các file con trỏ văn bản nhỏ và OpenCV/PIL sẽ báo lỗi không thể đọc được ảnh.
 
 **Hướng dẫn xử lý:**
@@ -107,11 +107,11 @@ Dự án này sử dụng **Git LFS** để quản lý các file ảnh lớn (tr
    git lfs pull
    ```
 
-## 📦 Dữ liệu (Dataset)
+## Dữ liệu (Dataset)
 Bộ dữ liệu huấn luyện địa danh của dự án được lưu trữ dưới dạng file nén `dataset.zip` và chia sẻ công khai:
 * **Link tải xuống**: [dataset.zip (Google Drive)](https://drive.google.com/file/d/1SZepSgLzSte3b7ktNxRfcuXe7dKvymRh/view?usp=sharing)
 
-### 📂 Hướng dẫn lưu trữ chi tiết:
+### Hướng dẫn lưu trữ chi tiết
 
 #### 1. Khi chạy trên máy tính cá nhân (Local / Offline)
 * **Vị trí lưu**: Di chuyển file `dataset.zip` vừa tải về đặt trực tiếp vào thư mục gốc của dự án (thư mục `Nhom4_Project/`, nằm cùng cấp với file `gui_dashboard.py`).
@@ -123,7 +123,7 @@ Bộ dữ liệu huấn luyện địa danh của dự án được lưu trữ d
 
 ---
 
-## 🚀 Hướng dẫn sử dụng
+## Hướng dẫn sử dụng
 
 ### 1. Chạy trên máy tính cá nhân (Giao diện GUI)
 Kích hoạt giao diện bảng điều khiển Dashboard tương tác bằng lệnh:
@@ -145,7 +145,7 @@ Dự án tích hợp sẵn file Notebook [sift_landmark_colab.ipynb](file:///d:/
 
 ---
 
-## 📂 Cấu trúc project
+## Cấu trúc project
 
 - `gui_dashboard.py`
   → Giao diện + xử lý đa luồng
@@ -158,7 +158,7 @@ Dự án tích hợp sẵn file Notebook [sift_landmark_colab.ipynb](file:///d:/
 
 ---
 
-## 👥 Nhóm thực hiện
+## Nhóm thực hiện
 
 **Nhóm 4 - D22CQPTUD01-N**
 
@@ -170,6 +170,6 @@ Dự án tích hợp sẵn file Notebook [sift_landmark_colab.ipynb](file:///d:/
 
 ---
 
-## 🎓 Giảng viên hướng dẫn
+## Giảng viên hướng dẫn
 
 Nguyễn Ngọc Duy

@@ -4,6 +4,24 @@ Hệ thống nhận diện địa danh tích hợp luồng tiền xử lý tự 
 
 ---
 
+## 📖 Mục lục
+
+- [📌 Tính năng chính](#tính-năng-chính)
+- [🛠 Cài đặt môi trường](#cài-đặt-môi-trường)
+  - [🍎 Đối với macOS / Linux](#đối-với-macos--linux)
+  - [🪟 Đối với Windows](#đối-với-windows)
+  - [⚠️ Lưu ý quan trọng về Git LFS (Large File Storage)](#lưu-ý-quan-trọng-về-git-lfs-large-file-storage)
+- [📦 Dữ liệu (Dataset)](#dữ-liệu-dataset)
+  - [📂 Hướng dẫn lưu trữ chi tiết](#hướng-dẫn-lưu-trữ-chi-tiết)
+- [🚀 Hướng dẫn sử dụng](#hướng-dẫn-sử-dụng)
+  - [1. Chạy trên máy tính cá nhân (Giao diện GUI)](#1-chạy-trên-máy-tính-cá-nhân-giao-diện-gui)
+  - [2. Chạy trên Google Colab (Notebook)](#2-chạy-trên-google-colab-notebook)
+- [📂 Cấu trúc project](#cấu-trúc-project)
+- [👥 Nhóm thực hiện](#nhóm-thực-hiện)
+- [🎓 Giảng viên hướng dẫn](#giảng-viên-hướng-dẫn)
+
+---
+
 ## 📌 Tính năng chính
 
 - **Trích xuất đặc trưng bất biến:**

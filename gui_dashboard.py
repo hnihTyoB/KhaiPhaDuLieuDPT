@@ -12,7 +12,9 @@ from tkinter import filedialog, messagebox
 
 from landmark_sift_bovw import load_models, IMG_SIZE, DISPLAY_NAMES
 from sift_landmark_pipeline import (
-    find_best_reference, detect_rotation_angle, 
+    find_best_reference, find_best_reference_fast,
+    build_reference_cache, load_reference_cache,
+    detect_rotation_angle, 
     rotate_image, predict_single, DATASET_PATH
 )
 
@@ -30,6 +32,7 @@ class LandmarkDashboard(ctk.CTk):
         self.kmeans = None
         self.svm = None
         self.label_names = None
+        self.reference_cache = None
         self.image_path = None
         self.current_user_img = None
         self.save_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'results_pipeline'))
@@ -50,7 +53,19 @@ class LandmarkDashboard(ctk.CTk):
             self.kmeans = kmeans_model
             self.svm = svm_model
             self.label_names = labels
-            self.log_msg("Tải mô hình thành công! Đã sẵn sàng nhận diện.")
+            self.log_msg("Tải mô hình thành công!")
+            
+            # Tải reference cache (nếu có)
+            cache = load_reference_cache()
+            if cache is not None:
+                self.reference_cache = cache
+                n = len(cache['entries'])
+                self.log_msg(f"Tải reference cache thành công ({n} ảnh mẫu). Chế độ FAST đã kích hoạt.")
+            else:
+                self.reference_cache = None
+                self.log_msg("Chưa có reference cache. Nhấn TRAIN để tạo (hoặc dùng chế độ chậm).")
+            
+            self.log_msg("Đã sẵn sàng nhận diện.")
         else:
             self.log_msg("LỖI: Không tìm thấy file mô hình. Hãy nhấn Train Dữ Liệu.")
 
@@ -501,6 +516,17 @@ class LandmarkDashboard(ctk.CTk):
                 self.log_msg("QUÁ TRÌNH HUẤN LUYỆN HOÀN TẤT!")
                 self.log_msg("Đang tải nạp tự động mô hình mới vào GUI...")
                 self.init_models()
+                
+                # Xây dựng reference cache sau khi train
+                if self.kmeans is not None:
+                    self.log_msg("Đang xây dựng Reference Cache (BoVW 1x1)...")
+                    cache_ok = build_reference_cache(self.kmeans)
+                    if cache_ok:
+                        self.reference_cache = load_reference_cache()
+                        self.log_msg("Reference Cache đã sẵn sàng! Chế độ FAST được kích hoạt.")
+                    else:
+                        self.log_msg("Cảnh báo: Không thể tạo Reference Cache.")
+                
                 messagebox.showinfo("Thành công", "Huấn luyện dữ liệu thành công!")
             else:
                 self.log_msg("Huấn luyện gặp lỗi, hãy xem log chi tiết.")
@@ -537,9 +563,14 @@ class LandmarkDashboard(ctk.CTk):
             self.col1_pred.configure(text=f"{res_before['display_name']}\n({res_before['confidence']:.1%})", text_color="#c0392b")
             self.plot_bar_chart(self.col1_extra, res_before['all_proba'])
             
-            self.log_msg("Đang quét tham chiếu SIFT đối chiếu chéo lớp...")
-            classes_to_search = list(res_before['all_proba'].keys())
-            ref_info = find_best_reference(user_gray, DATASET_PATH, classes_to_search)
+            # Tìm ảnh mẫu phù hợp nhất
+            if self.reference_cache is not None:
+                self.log_msg("[FAST] Đang tìm ảnh mẫu bằng Vector Search (cache)...")
+                ref_info = find_best_reference_fast(user_gray, self.reference_cache, self.kmeans)
+            else:
+                self.log_msg("Đang quét tham chiếu SIFT đối chiếu chéo lớp (chế độ chậm)...")
+                classes_to_search = list(res_before['all_proba'].keys())
+                ref_info = find_best_reference(user_gray, DATASET_PATH, classes_to_search)
             
             os.makedirs(self.save_dir, exist_ok=True)
             path_user_out = os.path.join(self.save_dir, 'gui_out_1_before.jpg')

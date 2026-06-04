@@ -32,6 +32,7 @@ MODEL_DIR = os.path.join(BASE_DIR, 'models')
 KMEANS_MODEL_PATH = os.path.join(MODEL_DIR, 'kmeans_model.pkl')
 SVM_MODEL_PATH = os.path.join(MODEL_DIR, 'svm_model.pkl')
 LABEL_NAMES_PATH = os.path.join(MODEL_DIR, 'label_names.pkl')
+REFERENCE_CACHE_PATH = os.path.join(MODEL_DIR, 'reference_cache.pkl')
 
 DISPLAY_NAMES = {
     'chuamotcot': 'Chùa Một Cột (Việt Nam)',

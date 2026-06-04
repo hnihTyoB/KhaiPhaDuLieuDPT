@@ -3,6 +3,7 @@
 import os
 import cv2
 import numpy as np
+import pickle
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -17,6 +18,8 @@ from landmark_sift_bovw import (
     DATASET_PATH,
     DISPLAY_NAMES,
     CONFIDENCE_THRESHOLD,
+    REFERENCE_CACHE_PATH,
+    EXCLUDE_CLASSES,
 )
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -142,6 +145,249 @@ def get_class_images(dataset_path, class_name, num_images=10):
         selected = [images[i] for i in indices]
 
     return [os.path.join(class_dir, f) for f in selected]
+
+
+# =====================================================================
+# HỆ THỐNG CACHE ẢNH MẪU (Reference Cache)
+# Tính trước histogram BoVW 1x1 (bất biến xoay) + lưu SIFT descriptors
+# để tìm ảnh mẫu nhanh bằng so sánh vector thay vì duyệt tuần tự.
+# =====================================================================
+
+def _serialize_keypoints(keypoints):
+    """Chuyển danh sách cv2.KeyPoint thành list of tuples để pickle được."""
+    return [(kp.pt, kp.size, kp.angle, kp.response, kp.octave, kp.class_id) for kp in keypoints]
+
+
+def _deserialize_keypoints(data):
+    """Khôi phục danh sách cv2.KeyPoint từ list of tuples."""
+    keypoints = []
+    for (pt, size, angle, response, octave, class_id) in data:
+        kp = cv2.KeyPoint(x=pt[0], y=pt[1], size=size, angle=angle,
+                          response=response, octave=octave, class_id=class_id)
+        keypoints.append(kp)
+    return keypoints
+
+
+def build_reference_cache(kmeans_model):
+    """
+    Xây dựng cache ảnh mẫu (chạy 1 lần sau khi Train).
+    Với mỗi ảnh mẫu trong dataset:
+      - Trích xuất SIFT keypoints + descriptors
+      - Tính histogram BoVW 1x1 toàn cục (K chiều, bất biến xoay)
+      - Lưu tất cả vào file pickle
+    """
+    print("\n" + "=" * 60)
+    print("XÂY DỰNG REFERENCE CACHE (Histogram 1x1 + SIFT)")
+    print("=" * 60)
+
+    if not os.path.exists(DATASET_PATH):
+        print(f"[LỖI] Không tìm thấy thư mục dataset: {DATASET_PATH}")
+        return False
+
+    k = kmeans_model.n_clusters
+    entries = []
+    all_histograms = []
+
+    # Phát hiện các lớp (loại trừ EXCLUDE_CLASSES)
+    label_names = sorted([
+        d for d in os.listdir(DATASET_PATH)
+        if os.path.isdir(os.path.join(DATASET_PATH, d))
+        and d not in EXCLUDE_CLASSES
+    ])
+
+    print(f"[INFO] Đang cache {len(label_names)} lớp, mỗi lớp tối đa {NUM_REF_PER_CLASS} ảnh...\n")
+
+    total_cached = 0
+    for class_name in label_names:
+        ref_images = get_class_images(DATASET_PATH, class_name, NUM_REF_PER_CLASS)
+        if not ref_images:
+            continue
+
+        display = DISPLAY_NAMES.get(class_name, class_name)
+        count = 0
+
+        for ref_path in ref_images:
+            ref_img = cv2.imread(ref_path)
+            if ref_img is None:
+                continue
+            ref_img = cv2.resize(ref_img, IMG_SIZE)
+            ref_gray = cv2.cvtColor(ref_img, cv2.COLOR_BGR2GRAY)
+
+            # Trích xuất SIFT (dùng SIFT mặc định, giống sift_extract)
+            kp_ref, desc_ref = sift_extract(ref_gray)
+            if desc_ref is None or len(desc_ref) < 2:
+                continue
+
+            # Tính histogram 1x1 toàn cục (K chiều, bất biến xoay)
+            hist = np.zeros(k, dtype=np.float32)
+            cluster_labels = kmeans_model.predict(desc_ref.astype(np.float32))
+            for cid in cluster_labels:
+                hist[cid] += 1
+            norm = np.linalg.norm(hist)
+            if norm > 0:
+                hist /= norm
+
+            all_histograms.append(hist)
+            entries.append({
+                'class_name': class_name,
+                'file_path': ref_path,
+                'keypoints_data': _serialize_keypoints(kp_ref),
+                'descriptors': desc_ref,
+            })
+            count += 1
+
+        print(f"  [{display}] {count} ảnh đã cache")
+        total_cached += count
+
+    if total_cached == 0:
+        print("[LỖI] Không cache được ảnh nào!")
+        return False
+
+    cache = {
+        'histograms': np.array(all_histograms, dtype=np.float32),
+        'entries': entries,
+    }
+
+    with open(REFERENCE_CACHE_PATH, 'wb') as f:
+        pickle.dump(cache, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+    size_mb = os.path.getsize(REFERENCE_CACHE_PATH) / (1024 * 1024)
+    print(f"\n[OK] Đã cache {total_cached} ảnh mẫu → {REFERENCE_CACHE_PATH} ({size_mb:.1f} MB)")
+    return True
+
+
+def load_reference_cache():
+    """Tải reference cache từ file pickle. Trả về dict hoặc None."""
+    if not os.path.exists(REFERENCE_CACHE_PATH):
+        return None
+    try:
+        with open(REFERENCE_CACHE_PATH, 'rb') as f:
+            cache = pickle.load(f)
+        n = len(cache['entries'])
+        print(f"[OK] Đã tải reference cache: {n} ảnh mẫu.")
+        return cache
+    except Exception as e:
+        print(f"[WARN] Lỗi tải reference cache: {e}")
+        return None
+
+
+TOP_N_CANDIDATES = 15  # Số ảnh ứng viên lấy ra từ vector search
+
+
+def find_best_reference_fast(user_gray, reference_cache, kmeans_model):
+    """
+    Tìm ảnh mẫu phù hợp nhất bằng cache (phiên bản tối ưu).
+    1. Tính histogram 1x1 cho ảnh user (bất biến xoay)
+    2. Cosine similarity với toàn bộ cache → Top N
+    3. Chỉ chạy SIFT matching chi tiết trên Top N
+    Trả về dict cùng format như find_best_reference.
+    """
+    # SIFT trích xuất ảnh user
+    kp_user, desc_user = sift_extract(user_gray)
+    if desc_user is None or len(desc_user) < 2:
+        print("[LỖI] Không trích xuất được SIFT từ ảnh user!")
+        return None
+
+    print(f"\n[FAST-SIFT] Ảnh user: {len(kp_user)} keypoints")
+
+    # Tính histogram 1x1 cho ảnh user
+    k = kmeans_model.n_clusters
+    user_hist = np.zeros(k, dtype=np.float32)
+    cluster_labels = kmeans_model.predict(desc_user.astype(np.float32))
+    for cid in cluster_labels:
+        user_hist[cid] += 1
+    norm = np.linalg.norm(user_hist)
+    if norm > 0:
+        user_hist /= norm
+
+    # Cosine similarity với toàn bộ cache (phép nhân ma trận, cực nhanh)
+    cached_hists = reference_cache['histograms']  # (N, K)
+    similarities = cached_hists @ user_hist        # (N,)
+
+    # Lấy Top N ứng viên
+    top_indices = np.argsort(similarities)[::-1][:TOP_N_CANDIDATES]
+
+    print(f"[FAST-SIFT] Vector search xong → Top {TOP_N_CANDIDATES} ứng viên (từ {len(cached_hists)} ảnh cache)\n")
+
+    # Chạy SIFT matching chi tiết chỉ trên Top N
+    best = None
+    candidates_meta = []
+
+    for idx in top_indices:
+        entry = reference_cache['entries'][idx]
+        kp_ref = _deserialize_keypoints(entry['keypoints_data'])
+        desc_ref = entry['descriptors']
+        class_name = entry['class_name']
+        display = DISPLAY_NAMES.get(class_name, class_name)
+
+        # SIFT matching + RANSAC
+        good = sift_match(desc_ref, desc_user, kp_ref, kp_user)
+        num = len(good)
+
+        if num >= MIN_GOOD_MATCHES:
+            _, votes = detect_rotation_angle(kp_ref, kp_user, good)
+
+            print(f"[{display}] {os.path.basename(entry['file_path']):20s} | {num:3d} matches | {votes} votes")
+
+            score = votes
+
+            candidates_meta.append({
+                'class_name': class_name,
+                'file_name': os.path.basename(entry['file_path']),
+                'matches': num,
+                'votes': votes,
+                'score': score
+            })
+
+            if best is None or score > best['score']:
+                # Đọc ảnh gốc chỉ cho ảnh tốt nhất (1 lần duy nhất, để hiển thị)
+                ref_img = cv2.imread(entry['file_path'])
+                if ref_img is None:
+                    continue
+                ref_img = cv2.resize(ref_img, IMG_SIZE)
+                ref_gray = cv2.cvtColor(ref_img, cv2.COLOR_BGR2GRAY)
+
+                best = {
+                    'class_name': class_name,
+                    'ref_path': entry['file_path'],
+                    'ref_gray': ref_gray,
+                    'kp_ref': kp_ref,
+                    'desc_ref': desc_ref,
+                    'kp_user': kp_user,
+                    'desc_user': desc_user,
+                    'good_matches': good,
+                    'num_matches': num,
+                    'score': score,
+                }
+
+    if best and best['score'] >= MIN_GOOD_MATCHES - 2:
+        print(f"\n  ✓ Ảnh mẫu reference: {os.path.basename(best['ref_path'])} "
+              f"(Lớp: {DISPLAY_NAMES.get(best['class_name'], best['class_name'])}) "
+              f"— {best['num_matches']} matches (Votes: {best['score']})")
+
+        # Trích lọc Top 3 đại diện (cùng logic như find_best_reference)
+        candidates_meta.sort(key=lambda x: x['score'], reverse=True)
+        distinct_top = []
+        seen_classes = set()
+        for c in candidates_meta:
+            if c['class_name'] not in seen_classes:
+                distinct_top.append(c)
+                seen_classes.add(c['class_name'])
+            if len(distinct_top) == 3: break
+
+        if len(distinct_top) < 3:
+            for c in candidates_meta:
+                if c not in distinct_top:
+                    distinct_top.append(c)
+                if len(distinct_top) == 3: break
+
+        best['top_candidates'] = distinct_top
+
+        return best
+    else:
+        print(f"\n✗ Không tìm thấy ảnh mẫu phù hợp")
+        return None
+
 
 
 def find_best_reference(user_gray, dataset_path, classes_to_search):

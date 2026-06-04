@@ -410,6 +410,13 @@ def train_pipeline():
     # Bước 6: Lưu mô hình
     save_models(kmeans, svm, label_names)
 
+    # Bước 7: Xây dựng reference cache tự động
+    try:
+        from sift_landmark_pipeline import build_reference_cache
+        build_reference_cache(kmeans)
+    except Exception as e:
+        print(f"[WARN] Lỗi khi tạo reference cache tự động: {e}")
+
     print("\n" + "█" * 60)
     print(f"HUẤN LUYỆN HOÀN THÀNH! — Accuracy: {accuracy:.2%}")
     print("█" * 60)

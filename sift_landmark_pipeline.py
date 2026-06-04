@@ -737,7 +737,15 @@ def full_pipeline(image_path, simulate_angle=None):
 
     # Truyền tất cả các lớp vào hàm SIFT matching thay vì chỉ lớp có xác suất cao nhất
     classes_to_search = list(result_before['all_proba'].keys())
-    ref_info = find_best_reference(user_gray, DATASET_PATH, classes_to_search)
+    
+    # Thử dùng reference cache để tìm kiếm nhanh
+    ref_cache = load_reference_cache()
+    if ref_cache is not None:
+        print("[INFO] Đang dùng Reference Cache (BoVW 1x1 Vector Search) tìm ảnh mẫu nhanh...")
+        ref_info = find_best_reference_fast(user_gray, ref_cache, kmeans)
+    else:
+        print("[WARN] Chưa tìm thấy Reference Cache. Sử dụng duyệt tuần tự (Chậm)...")
+        ref_info = find_best_reference(user_gray, DATASET_PATH, classes_to_search)
 
     if ref_info is None:
         print("\n→ Không tìm được ảnh mẫu phù hợp.")

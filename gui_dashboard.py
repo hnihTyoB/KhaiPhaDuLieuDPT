@@ -32,7 +32,7 @@ class LandmarkDashboard(ctk.CTk):
         self.label_names = None
         self.image_path = None
         self.current_user_img = None
-        self.save_dir = os.path.abspath('results_pipeline')
+        self.save_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'results_pipeline'))
         
         self.grid_columnconfigure(0, weight=0, minsize=400) 
         self.grid_columnconfigure(1, weight=1)
@@ -301,7 +301,7 @@ class LandmarkDashboard(ctk.CTk):
 
     def set_image(self, label_widget, cv2_rgb_img, target_size=(256, 256), full_res_img=None):
         if cv2_rgb_img is None:
-            label_widget.configure(image="", text="[Trống]")
+            label_widget.configure(image=None, text="[Trống]")
             if hasattr(label_widget, 'image'):
                 label_widget.image = None
             label_widget.unbind("<Button-1>")
@@ -553,7 +553,7 @@ class LandmarkDashboard(ctk.CTk):
                 self.col2_pred.configure(text="KHÔNG TÌM THẤY ẢNH MẪU", text_color="#e74c3c")
                 
                 # Xóa ảnh SIFT matching nếu không có
-                self.col2_img.configure(image="", text="[Trống]")
+                self.col2_img.configure(image=None, text="[Trống]")
                 if hasattr(self.col2_img, 'image'):
                     self.col2_img.image = None
                     

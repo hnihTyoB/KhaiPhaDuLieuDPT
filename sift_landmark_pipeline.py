@@ -19,7 +19,8 @@ from landmark_sift_bovw import (
     CONFIDENCE_THRESHOLD,
 )
 
-RESULTS_DIR = os.path.abspath('results_pipeline')
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+RESULTS_DIR = os.path.abspath(os.path.join(BASE_DIR, 'results_pipeline'))
 RATIO_THRESHOLD = 0.75 # Ngưỡng Lowe's ratio test
 NUM_REF_PER_CLASS = 40 # Số ảnh tham chiếu trên mỗi lớp
 MIN_GOOD_MATCHES = 11 # Số matches tối thiểu để phát hiện xoay

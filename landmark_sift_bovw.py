@@ -17,7 +17,8 @@ import seaborn as sns
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 # THAM SỐ QUAN TRỌNG (CẤU HÌNH)
-DATASET_PATH = 'dataset'                
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATASET_PATH = os.path.join(BASE_DIR, 'dataset')                
 IMG_SIZE = (512, 512)                   
 K_CLUSTERS = 600                        
 SVM_KERNEL = 'linear'                   
@@ -27,7 +28,7 @@ RANDOM_STATE = 42 # Seed cho kết quả tái lập
 CONFIDENCE_THRESHOLD = 0.15 # Ngưỡng confidence (dưới = "Không xác định")
 
 # Đường dẫn lưu/tải mô hình
-MODEL_DIR = 'models'
+MODEL_DIR = os.path.join(BASE_DIR, 'models')
 KMEANS_MODEL_PATH = os.path.join(MODEL_DIR, 'kmeans_model.pkl')
 SVM_MODEL_PATH = os.path.join(MODEL_DIR, 'svm_model.pkl')
 LABEL_NAMES_PATH = os.path.join(MODEL_DIR, 'label_names.pkl')

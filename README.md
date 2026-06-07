@@ -123,6 +123,16 @@ Bộ dữ liệu huấn luyện địa danh của dự án được lưu trữ d
 
 ---
 
+## Mô hình đã huấn luyện (Pre-trained Models)
+Nếu bạn không muốn mất thời gian huấn luyện lại mô hình từ đầu, bạn có thể tải về bộ mô hình đã được nhóm huấn luyện sẵn:
+* **Link tải xuống**: [models.zip (Google Drive)](https://drive.google.com/file/d/1298FmCefx6tUlkOO5VNC-iAuFRTWgSJo/view?usp=sharing)
+* **Hướng dẫn cài đặt**:
+  1. Tải file `models.zip` về máy tính.
+  2. Tạo thư mục đặt tên là `models` ở thư mục gốc của dự án (nằm cùng cấp với file `gui_dashboard.py`).
+  3. Giải nén file `models.zip` và di chuyển toàn bộ các file bên trong (`kmeans_model.pkl`, `svm_model.pkl`, `label_names.pkl`, `accuracy_report.txt`, `confusion_matrix.png`, `reference_cache.pkl`) đặt vào thư mục `models/` vừa tạo.
+
+---
+
 ## Hướng dẫn sử dụng
 
 ### 1. Chạy trên máy tính cá nhân (Giao diện GUI)

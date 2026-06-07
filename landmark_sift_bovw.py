@@ -304,7 +304,8 @@ def train_svm(features, labels, label_names, kernel):
     # Classification Report
     display_labels = [DISPLAY_NAMES.get(name, name) for name in label_names]
     print(f"\n[Classification Report]")
-    print(classification_report(y_test, y_pred, target_names=display_labels, zero_division=0))
+    report_str = classification_report(y_test, y_pred, target_names=display_labels, zero_division=0)
+    print(report_str)
 
     # Confusion Matrix
     cm = confusion_matrix(y_test, y_pred)
@@ -313,6 +314,28 @@ def train_svm(features, labels, label_names, kernel):
 
     # Vẽ Confusion Matrix → lưu file
     plot_confusion_matrix(cm, display_labels)
+
+    # Ghi báo cáo độ chính xác ra file
+    try:
+        os.makedirs(MODEL_DIR, exist_ok=True)
+        report_path = os.path.join(MODEL_DIR, 'accuracy_report.txt')
+        with open(report_path, 'w', encoding='utf-8') as f:
+            f.write("KET QUA DANH GIA MO HINH NHAN DIEN DIA DANH SIFT - SVM\n")
+            f.write("======================================================================\n")
+            f.write(f"Do chinh xac tong the (Accuracy): {accuracy:.4f} ({accuracy:.2%})\n")
+            f.write(f"So mau huan luyen (Train): {len(X_train)} | So mau kiem thu (Test): {len(X_test)}\n")
+            f.write("======================================================================\n\n")
+            f.write("CHI TIET DO CHINH XAC TUNG LOP DIA DANH (CLASSIFICATION REPORT):\n")
+            f.write("----------------------------------------------------------------------\n")
+            f.write(report_str)
+            f.write("\n======================================================================\n")
+            f.write("MA TRAN NHAM LAN (CONFUSION MATRIX):\n")
+            f.write("----------------------------------------------------------------------\n")
+            f.write(np.array2string(cm))
+            f.write("\n")
+        print(f"[OK] Da luu bao cao do chinh xac tai: {report_path}")
+    except Exception as e:
+        print(f"[WARN] Khong the luu bao cao do chinh xac: {e}")
 
     return svm, accuracy
 

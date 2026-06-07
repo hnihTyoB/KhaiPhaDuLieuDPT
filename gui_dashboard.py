@@ -283,12 +283,73 @@ class LandmarkDashboard(ctk.CTk):
         try:
             from landmark_sift_bovw import MODEL_DIR
             cm_path = os.path.join(MODEL_DIR, 'confusion_matrix.png')
-            if not os.path.exists(cm_path):
-                self.log_msg("LỖI: Không tìm thấy ảnh Ma trận nhầm lẫn.")
+            report_path = os.path.join(MODEL_DIR, 'accuracy_report.txt')
+            
+            if not os.path.exists(cm_path) and not os.path.exists(report_path):
+                self.log_msg("LỖI: Không tìm thấy dữ liệu thống kê đánh giá mô hình.")
+                messagebox.showwarning("Chưa có dữ liệu", "Chưa có thông tin thống kê. Vui lòng huấn luyện mô hình (TRAIN) trước.")
                 return
-            self.open_saved_image(cm_path, "Ma trận nhầm lẫn (Confusion Matrix)")
+                
+            # Tạo cửa sổ hiển thị thống kê
+            top = ctk.CTkToplevel(self)
+            top.title("Thống kê Huấn luyện Mô hình (Model Training Statistics)")
+            top.geometry("750x650")
+            top.transient(self)
+            top.focus()
+            
+            # Tiêu đề
+            title_lbl = ctk.CTkLabel(top, text="KẾT QUẢ ĐÁNH GIÁ MÔ HÌNH SIFT - SVM", 
+                                     font=ctk.CTkFont(size=16, weight="bold"),
+                                     text_color="#9b59b6")
+            title_lbl.pack(pady=10)
+            
+            # Tạo Tabview
+            tabview = ctk.CTkTabview(top, segmented_button_selected_color="#8e44ad", 
+                                     segmented_button_selected_hover_color="#9b59b6")
+            tabview.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+            
+            # Thêm các tab
+            tab_report = tabview.add("Báo cáo độ chính xác (Classification Report)")
+            tab_cm = tabview.add("Ma trận nhầm lẫn (Confusion Matrix)")
+            
+            # --- Tab 1: Classification Report ---
+            if os.path.exists(report_path):
+                textbox = ctk.CTkTextbox(tab_report, font=ctk.CTkFont(family="Consolas", size=12))
+                textbox.pack(fill="both", expand=True, padx=5, pady=5)
+                
+                with open(report_path, 'r', encoding='utf-8') as f:
+                    report_content = f.read()
+                
+                textbox.insert("1.0", report_content)
+                textbox.configure(state="disabled")
+            else:
+                lbl = ctk.CTkLabel(tab_report, text="Chưa có báo cáo độ chính xác. Hãy huấn luyện mô hình để tạo báo cáo.")
+                lbl.pack(expand=True)
+                
+            # --- Tab 2: Confusion Matrix Image ---
+            if os.path.exists(cm_path):
+                img = cv2.imread(cm_path)
+                if img is not None:
+                    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                    h_max, w_max = 480, 680
+                    h, w = img_rgb.shape[:2]
+                    scale = min(w_max / w, h_max / h)
+                    new_w, new_h = int(w * scale), int(h * scale)
+                    img_resized = cv2.resize(img_rgb, (new_w, new_h), interpolation=cv2.INTER_AREA)
+                    
+                    from PIL import Image
+                    pil_img = Image.fromarray(img_resized)
+                    ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(new_w, new_h))
+                    
+                    img_lbl = ctk.CTkLabel(tab_cm, image=ctk_img, text="")
+                    img_lbl.image = ctk_img
+                    img_lbl.pack(expand=True, padx=5, pady=5)
+            else:
+                lbl = ctk.CTkLabel(tab_cm, text="Chưa có ma trận nhầm lẫn. Hãy huấn luyện mô hình để tạo đồ thị.")
+                lbl.pack(expand=True)
+                
         except Exception as e:
-            self.log_msg(f"LỖI gọi Ma trận nhầm lẫn: {e}")
+            self.log_msg(f"LỖI hiển thị thống kê: {e}")
 
     def select_image(self):
         path = filedialog.askopenfilename(filetypes=[("Image Files", "*.jpg;*.jpeg;*.png;*.bmp")])

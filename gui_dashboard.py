@@ -232,6 +232,10 @@ class LandmarkDashboard(ctk.CTk):
         return frame
 
     def log_msg(self, msg):
+        import threading
+        if threading.current_thread() != threading.main_thread():
+            self.after(0, self.log_msg, msg)
+            return
         self.log_box.configure(state="normal")
         self.log_box.insert("end", msg + "\n")
         self.log_box.see("end")
@@ -375,13 +379,34 @@ class LandmarkDashboard(ctk.CTk):
                 self.set_image(self.col1_img, self.current_user_img, full_res_img=raw_rgb)
                 self.log_msg(f"Đã mở ảnh (Gốc: {w_orig}x{h_orig}): {path}")
 
+    def _ui_run(self, func):
+        """Dispatch một hàm GUI lên main thread (thread-safe)."""
+        import threading
+        if threading.current_thread() != threading.main_thread():
+            self.after(0, func)
+        else:
+            func()
+
     def set_image(self, label_widget, cv2_rgb_img, target_size=(256, 256), full_res_img=None):
+        import threading
+        if threading.current_thread() != threading.main_thread():
+            self.after(0, self.set_image, label_widget, cv2_rgb_img, target_size, full_res_img)
+            return
+        
+        # Xóa ảnh cũ (stale pyimage) trong internal tkinter Label TRƯỚC
+        try:
+            label_widget._label.configure(image="")
+        except Exception:
+            pass
+        label_widget.image = None
+        
         if cv2_rgb_img is None:
-            label_widget.configure(image=None, text="[Trống]")
-            if hasattr(label_widget, 'image'):
-                label_widget.image = None
-            label_widget.unbind("<Button-1>")
-            label_widget.configure(cursor="arrow")
+            try:
+                label_widget.configure(image=None, text="[Trống]")
+                label_widget.unbind("<Button-1>")
+                label_widget.configure(cursor="arrow")
+            except Exception:
+                pass
             return
             
         h, w = cv2_rgb_img.shape[:2]
@@ -392,14 +417,13 @@ class LandmarkDashboard(ctk.CTk):
         from PIL import Image, ImageTk
         pil_img = Image.fromarray(img_resized)
         ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=new_size)
-        label_widget.configure(image=ctk_img, text="")
-        label_widget.image = ctk_img
-        
+        label_widget.image = ctk_img  # giữ tham chiếu tránh garbage collection
         try:
+            label_widget.configure(image=ctk_img, text="")
             label_widget.unbind("<Button-1>")
-        except:
-            pass
-        label_widget.configure(cursor="")
+            label_widget.configure(cursor="")
+        except Exception as e:
+            self.log_msg(f"[WARN] set_image configure lỗi: {e}")
 
     def open_saved_image(self, path, title):
         if not os.path.exists(path):
@@ -443,6 +467,10 @@ class LandmarkDashboard(ctk.CTk):
         lbl.pack(expand=True, fill="both", padx=20, pady=20)
 
     def plot_bar_chart(self, frame_widget, proba_dict, is_percentage=True):
+        import threading
+        if threading.current_thread() != threading.main_thread():
+            self.after(0, self.plot_bar_chart, frame_widget, proba_dict, is_percentage)
+            return
         for widget in frame_widget.winfo_children():
             widget.destroy()
             
@@ -484,6 +512,7 @@ class LandmarkDashboard(ctk.CTk):
         canvas = FigureCanvasTkAgg(fig, master=frame_widget)
         canvas.draw()
         canvas.get_tk_widget().pack(fill="both", expand=True)
+        plt.close(fig)
 
     # Hàm tính SSIM
     @staticmethod
@@ -553,8 +582,16 @@ class LandmarkDashboard(ctk.CTk):
             getattr(self, f'col{col}_pred').configure(text="...", text_color="black")
             for w in getattr(self, f'col{col}_extra').winfo_children():
                 w.destroy()
-        self.col2_img.configure(image=None, text=" (Trống) ")
-        self.col3_img.configure(image=None, text=" (Trống) ")
+        for img_label in [self.col2_img, self.col3_img]:
+            try:
+                img_label._label.configure(image="")
+            except Exception:
+                pass
+            img_label.image = None
+            try:
+                img_label.configure(image=None, text=" (Trống) ")
+            except Exception:
+                pass
 
     # TRAINING
     def run_training_thread(self):
@@ -621,13 +658,13 @@ class LandmarkDashboard(ctk.CTk):
                 self.log_msg("Lỗi: Không trích được SIFT gốc.")
                 return
                 
-            self.col1_pred.configure(text=f"{res_before['display_name']}\n({res_before['confidence']:.1%})", text_color="#c0392b")
+            self._ui_run(lambda: self.col1_pred.configure(text=f"{res_before['display_name']}\n({res_before['confidence']:.1%})", text_color="#c0392b"))
             self.plot_bar_chart(self.col1_extra, res_before['all_proba'])
             
             # Tìm ảnh mẫu phù hợp nhất
             if self.reference_cache is not None:
                 self.log_msg("[FAST] Đang tìm ảnh mẫu bằng Vector Search (cache)...")
-                ref_info = find_best_reference_fast(user_gray, self.reference_cache, self.kmeans)
+                ref_info = find_best_reference_fast(user_gray, self.reference_cache, self.kmeans, res_before['all_proba'])
             else:
                 self.log_msg("Đang quét tham chiếu SIFT đối chiếu chéo lớp (chế độ chậm)...")
                 classes_to_search = list(res_before['all_proba'].keys())
@@ -641,13 +678,9 @@ class LandmarkDashboard(ctk.CTk):
             cv2.imwrite(path_user_out, user_gray)
             
             if ref_info is None:
-                self.log_msg("LỖI: SIFT Không tìm thấy ảnh mẫu phù hợp.")
-                self.col2_pred.configure(text="KHÔNG TÌM THẤY ẢNH MẪU", text_color="#e74c3c")
-                
-                # Xóa ảnh SIFT matching nếu không có
-                self.col2_img.configure(image=None, text="[Trống]")
-                if hasattr(self.col2_img, 'image'):
-                    self.col2_img.image = None
+                self.log_msg("SIFT không tìm thấy ảnh mẫu phù hợp → Giữ nguyên kết quả dự đoán ban đầu.")
+                self._ui_run(lambda: self.col2_pred.configure(text="KHÔNG TÌM THẤY ẢNH MẪU", text_color="#e74c3c"))
+                self.set_image(self.col2_img, None)
                     
                 self.after_pipeline_end(user_gray, res_before, path_corrected_out)
                 return
@@ -670,7 +703,7 @@ class LandmarkDashboard(ctk.CTk):
                 sift_votes_dict = {cand['class_name']: cand['score'] for cand in top_cands}
                 self.plot_bar_chart(self.col2_extra, sift_votes_dict, is_percentage=False)
             else:
-                for w in self.col2_extra.winfo_children(): w.destroy()
+                self._ui_run(lambda: [w.destroy() for w in self.col2_extra.winfo_children()])
             
             self.log_msg("Đang kiểm chứng hình học RANSAC/Voting...")
             angle, votes = detect_rotation_angle(ref_info['kp_ref'], ref_info['kp_user'], ref_info['good_matches'])
@@ -686,13 +719,13 @@ class LandmarkDashboard(ctk.CTk):
             
             if angle is None or votes < 5 or (abs(angle) > 135 and votes < 8):
                 self.log_msg(f"GÓC XOAY RỦI RO LỚN ({angle}°, {votes} votes) → TỪ CHỐI XOAY ĐỂ BẢO CẢNH!")
-                self.col2_pred.configure(text=f"TỪ CHỐI XOAY\n(Dữ liệu quá yếu: {votes} votes)", text_color="#c0392b")
+                self._ui_run(lambda: self.col2_pred.configure(text=f"TỪ CHỐI XOAY\n(Dữ liệu quá yếu: {votes} votes)", text_color="#c0392b"))
                 
                 self.after_pipeline_end(user_gray, res_before, path_corrected_out)
                 return
                 
             self.log_msg(f"Hợp lệ! Góc xoay bù: {-angle:+.1f}°")
-            self.col2_pred.configure(text=f"CHỈNH XOAY: {-angle:+.1f}°\n({votes} votes)", text_color="#27ae60")
+            self._ui_run(lambda: self.col2_pred.configure(text=f"CHỈNH XOAY: {-angle:+.1f}°\n({votes} votes)", text_color="#27ae60"))
             
             corrected_gray = rotate_image(user_gray, -angle)
             res_after = predict_single(corrected_gray, self.kmeans, self.svm, self.label_names)
@@ -721,15 +754,16 @@ class LandmarkDashboard(ctk.CTk):
                 ssim_after = self.compute_ssim(ref_info['ref_gray'], corrected_gray)
                 self.save_summary_bar_chart(ssim_before, ssim_after, len(ref_info['good_matches']), len(good_after), path_comp)
                                 
-                btn_frame = ctk.CTkFrame(self.col2_extra, fg_color="transparent")
-                btn_frame.pack(fill="x", pady=(10,0))
-                
-                ctk.CTkButton(btn_frame, text="Biểu đồ", fg_color="#34495e", height=30, width=40, font=("Arial", 11),
-                              command=lambda p=path_comp: self.open_saved_image(p, "Biểu đồ")).pack(side="left", expand=True, fill="x", padx=2)
-                ctk.CTkButton(btn_frame, text="Trước", fg_color="#34495e", height=30, width=40, font=("Arial", 11),
-                              command=lambda p=path_match_b: self.open_saved_image(p, "Trước")).pack(side="left", expand=True, fill="x", padx=2)
-                ctk.CTkButton(btn_frame, text="Sau", fg_color="#34495e", height=30, width=40, font=("Arial", 11),
-                              command=lambda p=path_match_a: self.open_saved_image(p, "Sau")).pack(side="left", expand=True, fill="x", padx=2)
+                def _add_buttons():
+                    btn_frame = ctk.CTkFrame(self.col2_extra, fg_color="transparent")
+                    btn_frame.pack(fill="x", pady=(10,0))
+                    ctk.CTkButton(btn_frame, text="Biểu đồ", fg_color="#34495e", height=30, width=40, font=("Arial", 11),
+                                  command=lambda p=path_comp: self.open_saved_image(p, "Biểu đồ")).pack(side="left", expand=True, fill="x", padx=2)
+                    ctk.CTkButton(btn_frame, text="Trước", fg_color="#34495e", height=30, width=40, font=("Arial", 11),
+                                  command=lambda p=path_match_b: self.open_saved_image(p, "Trước")).pack(side="left", expand=True, fill="x", padx=2)
+                    ctk.CTkButton(btn_frame, text="Sau", fg_color="#34495e", height=30, width=40, font=("Arial", 11),
+                                  command=lambda p=path_match_a: self.open_saved_image(p, "Sau")).pack(side="left", expand=True, fill="x", padx=2)
+                self._ui_run(_add_buttons)
             except Exception as e:
                 self.log_msg(f"Cảnh báo: Không thể nạp chức năng vẽ Chart: {e}")
             
@@ -739,9 +773,13 @@ class LandmarkDashboard(ctk.CTk):
         except Exception as e:
             self.log_msg(f"LỖI PIPELINE: {e}")
         finally:
-            self.btn_run.configure(state="normal", text="NHẬN DIỆN")
+            self._ui_run(lambda: self.btn_run.configure(state="normal", text="NHẬN DIỆN"))
 
     def after_pipeline_end(self, final_gray, final_res, path_save_final, full_res_rgb=None):
+        import threading
+        if threading.current_thread() != threading.main_thread():
+            self.after(0, self.after_pipeline_end, final_gray, final_res, path_save_final, full_res_rgb)
+            return
         final_rgb = cv2.cvtColor(final_gray, cv2.COLOR_GRAY2RGB)
         self.set_image(self.col3_img, final_rgb, full_res_img=full_res_rgb)
         

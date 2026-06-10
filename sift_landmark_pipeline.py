@@ -341,15 +341,18 @@ def find_best_reference_fast(user_gray, reference_cache, kmeans_model):
 
             if best is None or score > best['score']:
                 # Đọc ảnh gốc chỉ cho ảnh tốt nhất (1 lần duy nhất, để hiển thị)
-                ref_img = cv2.imread(entry['file_path'])
+                filename = os.path.basename(entry['file_path'])
+                actual_ref_path = os.path.join(DATASET_PATH, class_name, filename)
+                ref_img = cv2.imread(actual_ref_path)
                 if ref_img is None:
+                    print(f"[WARN] Không thể đọc file ảnh tham chiếu: {actual_ref_path}")
                     continue
                 ref_img = cv2.resize(ref_img, IMG_SIZE)
                 ref_gray = cv2.cvtColor(ref_img, cv2.COLOR_BGR2GRAY)
 
                 best = {
                     'class_name': class_name,
-                    'ref_path': entry['file_path'],
+                    'ref_path': actual_ref_path,
                     'ref_gray': ref_gray,
                     'kp_ref': kp_ref,
                     'desc_ref': desc_ref,

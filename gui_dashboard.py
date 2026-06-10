@@ -12,7 +12,9 @@ from tkinter import filedialog, messagebox
 
 from landmark_sift_bovw import load_models, IMG_SIZE, DISPLAY_NAMES
 from sift_landmark_pipeline import (
-    find_best_reference, detect_rotation_angle, 
+    find_best_reference, find_best_reference_fast,
+    build_reference_cache, load_reference_cache,
+    detect_rotation_angle, 
     rotate_image, predict_single, DATASET_PATH
 )
 
@@ -30,6 +32,7 @@ class LandmarkDashboard(ctk.CTk):
         self.kmeans = None
         self.svm = None
         self.label_names = None
+        self.reference_cache = None
         self.image_path = None
         self.current_user_img = None
         self.save_dir = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'results_pipeline'))
@@ -50,7 +53,19 @@ class LandmarkDashboard(ctk.CTk):
             self.kmeans = kmeans_model
             self.svm = svm_model
             self.label_names = labels
-            self.log_msg("Tải mô hình thành công! Đã sẵn sàng nhận diện.")
+            self.log_msg("Tải mô hình thành công!")
+            
+            # Tải reference cache (nếu có)
+            cache = load_reference_cache()
+            if cache is not None:
+                self.reference_cache = cache
+                n = len(cache['entries'])
+                self.log_msg(f"Tải reference cache thành công ({n} ảnh mẫu). Chế độ FAST đã kích hoạt.")
+            else:
+                self.reference_cache = None
+                self.log_msg("Chưa có reference cache. Nhấn TRAIN để tạo (hoặc dùng chế độ chậm).")
+            
+            self.log_msg("Đã sẵn sàng nhận diện.")
         else:
             self.log_msg("LỖI: Không tìm thấy file mô hình. Hãy nhấn Train Dữ Liệu.")
 
@@ -268,12 +283,73 @@ class LandmarkDashboard(ctk.CTk):
         try:
             from landmark_sift_bovw import MODEL_DIR
             cm_path = os.path.join(MODEL_DIR, 'confusion_matrix.png')
-            if not os.path.exists(cm_path):
-                self.log_msg("LỖI: Không tìm thấy ảnh Ma trận nhầm lẫn.")
+            report_path = os.path.join(MODEL_DIR, 'accuracy_report.txt')
+            
+            if not os.path.exists(cm_path) and not os.path.exists(report_path):
+                self.log_msg("LỖI: Không tìm thấy dữ liệu thống kê đánh giá mô hình.")
+                messagebox.showwarning("Chưa có dữ liệu", "Chưa có thông tin thống kê. Vui lòng huấn luyện mô hình (TRAIN) trước.")
                 return
-            self.open_saved_image(cm_path, "Ma trận nhầm lẫn (Confusion Matrix)")
+                
+            # Tạo cửa sổ hiển thị thống kê
+            top = ctk.CTkToplevel(self)
+            top.title("Thống kê Huấn luyện Mô hình (Model Training Statistics)")
+            top.geometry("750x650")
+            top.transient(self)
+            top.focus()
+            
+            # Tiêu đề
+            title_lbl = ctk.CTkLabel(top, text="KẾT QUẢ ĐÁNH GIÁ MÔ HÌNH SIFT - SVM", 
+                                     font=ctk.CTkFont(size=16, weight="bold"),
+                                     text_color="#9b59b6")
+            title_lbl.pack(pady=10)
+            
+            # Tạo Tabview
+            tabview = ctk.CTkTabview(top, segmented_button_selected_color="#8e44ad", 
+                                     segmented_button_selected_hover_color="#9b59b6")
+            tabview.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+            
+            # Thêm các tab
+            tab_report = tabview.add("Báo cáo độ chính xác (Classification Report)")
+            tab_cm = tabview.add("Ma trận nhầm lẫn (Confusion Matrix)")
+            
+            # --- Tab 1: Classification Report ---
+            if os.path.exists(report_path):
+                textbox = ctk.CTkTextbox(tab_report, font=ctk.CTkFont(family="Consolas", size=12))
+                textbox.pack(fill="both", expand=True, padx=5, pady=5)
+                
+                with open(report_path, 'r', encoding='utf-8') as f:
+                    report_content = f.read()
+                
+                textbox.insert("1.0", report_content)
+                textbox.configure(state="disabled")
+            else:
+                lbl = ctk.CTkLabel(tab_report, text="Chưa có báo cáo độ chính xác. Hãy huấn luyện mô hình để tạo báo cáo.")
+                lbl.pack(expand=True)
+                
+            # --- Tab 2: Confusion Matrix Image ---
+            if os.path.exists(cm_path):
+                img = cv2.imread(cm_path)
+                if img is not None:
+                    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                    h_max, w_max = 480, 680
+                    h, w = img_rgb.shape[:2]
+                    scale = min(w_max / w, h_max / h)
+                    new_w, new_h = int(w * scale), int(h * scale)
+                    img_resized = cv2.resize(img_rgb, (new_w, new_h), interpolation=cv2.INTER_AREA)
+                    
+                    from PIL import Image
+                    pil_img = Image.fromarray(img_resized)
+                    ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(new_w, new_h))
+                    
+                    img_lbl = ctk.CTkLabel(tab_cm, image=ctk_img, text="")
+                    img_lbl.image = ctk_img
+                    img_lbl.pack(expand=True, padx=5, pady=5)
+            else:
+                lbl = ctk.CTkLabel(tab_cm, text="Chưa có ma trận nhầm lẫn. Hãy huấn luyện mô hình để tạo đồ thị.")
+                lbl.pack(expand=True)
+                
         except Exception as e:
-            self.log_msg(f"LỖI gọi Ma trận nhầm lẫn: {e}")
+            self.log_msg(f"LỖI hiển thị thống kê: {e}")
 
     def select_image(self):
         path = filedialog.askopenfilename(filetypes=[("Image Files", "*.jpg;*.jpeg;*.png;*.bmp")])
@@ -501,6 +577,17 @@ class LandmarkDashboard(ctk.CTk):
                 self.log_msg("QUÁ TRÌNH HUẤN LUYỆN HOÀN TẤT!")
                 self.log_msg("Đang tải nạp tự động mô hình mới vào GUI...")
                 self.init_models()
+                
+                # Xây dựng reference cache sau khi train
+                if self.kmeans is not None:
+                    self.log_msg("Đang xây dựng Reference Cache (BoVW 1x1)...")
+                    cache_ok = build_reference_cache(self.kmeans)
+                    if cache_ok:
+                        self.reference_cache = load_reference_cache()
+                        self.log_msg("Reference Cache đã sẵn sàng! Chế độ FAST được kích hoạt.")
+                    else:
+                        self.log_msg("Cảnh báo: Không thể tạo Reference Cache.")
+                
                 messagebox.showinfo("Thành công", "Huấn luyện dữ liệu thành công!")
             else:
                 self.log_msg("Huấn luyện gặp lỗi, hãy xem log chi tiết.")
@@ -537,9 +624,14 @@ class LandmarkDashboard(ctk.CTk):
             self.col1_pred.configure(text=f"{res_before['display_name']}\n({res_before['confidence']:.1%})", text_color="#c0392b")
             self.plot_bar_chart(self.col1_extra, res_before['all_proba'])
             
-            self.log_msg("Đang quét tham chiếu SIFT đối chiếu chéo lớp...")
-            classes_to_search = list(res_before['all_proba'].keys())
-            ref_info = find_best_reference(user_gray, DATASET_PATH, classes_to_search)
+            # Tìm ảnh mẫu phù hợp nhất
+            if self.reference_cache is not None:
+                self.log_msg("[FAST] Đang tìm ảnh mẫu bằng Vector Search (cache)...")
+                ref_info = find_best_reference_fast(user_gray, self.reference_cache, self.kmeans)
+            else:
+                self.log_msg("Đang quét tham chiếu SIFT đối chiếu chéo lớp (chế độ chậm)...")
+                classes_to_search = list(res_before['all_proba'].keys())
+                ref_info = find_best_reference(user_gray, DATASET_PATH, classes_to_search)
             
             os.makedirs(self.save_dir, exist_ok=True)
             path_user_out = os.path.join(self.save_dir, 'gui_out_1_before.jpg')

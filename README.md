@@ -1,4 +1,4 @@
-# SIFT Landmark Recognition Dashboard
+# SIFT Landmark Recognition Pipeline
 
 Hệ thống nhận diện địa danh tích hợp luồng tiền xử lý tự phục hồi góc xoay (Self-Correcting Pipeline) sử dụng thuật toán SIFT, mô hình túi từ vựng thị giác (BoVW) và máy vector hỗ trợ (SVM).
 
@@ -13,7 +13,7 @@ Hệ thống nhận diện địa danh tích hợp luồng tiền xử lý tự 
   - [⚠️ Lưu ý quan trọng về Git LFS (Large File Storage)](#lưu-ý-quan-trọng-về-git-lfs-large-file-storage)
 - [📦 Dữ liệu (Dataset)](#dữ-liệu-dataset)
 - [🚀 Hướng dẫn sử dụng](#hướng-dẫn-sử-dụng)
-  - [1. Chạy trên máy tính cá nhân (Giao diện GUI)](#1-chạy-trên-máy-tính-cá-nhân-giao-diện-gui)
+  - [1. Chạy trên máy tính cá nhân (Dòng lệnh CLI)](#1-chạy-trên-máy-tính-cá-nhân-dòng-lệnh-cli)
   - [2. Chạy trên Google Colab (Notebook)](#2-chạy-trên-google-colab-notebook)
 - [📂 Cấu trúc project](#cấu-trúc-project)
 - [👥 Nhóm thực hiện](#nhóm-thực-hiện)
@@ -32,8 +32,8 @@ Hệ thống nhận diện địa danh tích hợp luồng tiền xử lý tự 
 - **Tiền xử lý tự phục hồi:**
   Tự động phát hiện góc lệch và xoay lại ảnh bằng Histogram Voting + RANSAC trước khi phân loại.
 
-- **Giao diện Dashboard:**
-  Xây dựng bằng CustomTkinter, hỗ trợ đa luồng giúp chạy mượt.
+- **Tìm kiếm nhanh Hybrid (FAST-SIFT):**
+  Tích hợp điểm số xác suất SVM và Cosine Similarity trên đặc trưng BoVW 1x1 của bộ nhớ cache để rút ngắn thời gian tìm ảnh mẫu từ ~37 giây xuống dưới 0.8 giây.
 
 ---
 
@@ -122,7 +122,7 @@ Bộ dữ liệu huấn luyện địa danh của dự án được lưu trữ d
 
 #### 1. Khi chạy trên máy tính cá nhân (Local / Offline)
 
-- **Vị trí lưu**: Di chuyển file `dataset.zip` vừa tải về đặt trực tiếp vào thư mục gốc của dự án (thư mục `Nhom4_Project/`, nằm cùng cấp với file `gui_dashboard.py`).
+- **Vị trí lưu**: Di chuyển file `dataset.zip` vừa tải về đặt trực tiếp vào thư mục gốc của dự án (`Nhom4_Project/`).
 - **Cách giải nén**: Tiến hành giải nén file `dataset.zip` ngay tại thư mục đó để tạo ra thư mục `dataset/` (đảm bảo cấu trúc đường dẫn đúng là `Nhom4_Project/dataset/`, bên trong chứa 10 thư mục con tương ứng với 10 địa danh như `caucongvang`, `chuamotcot`,...).
 
 #### 2. Khi chạy trên Google Colab (Online / Cloud)
@@ -139,24 +139,26 @@ Nếu bạn không muốn mất thời gian huấn luyện lại mô hình từ 
 - **Link tải xuống**: [models.zip (Google Drive)](https://drive.google.com/file/d/1298FmCefx6tUlkOO5VNC-iAuFRTWgSJo/view?usp=sharing)
 - **Hướng dẫn cài đặt**:
   1. Tải file `models.zip` về máy tính.
-  2. Tạo thư mục đặt tên là `models` ở thư mục gốc của dự án (nằm cùng cấp với file `gui_dashboard.py`).
+  2. Tạo thư mục đặt tên là `models` ở thư mục gốc của dự án (`Nhom4_Project/`).
   3. Giải nén file `models.zip` và di chuyển toàn bộ các file bên trong (`kmeans_model.pkl`, `svm_model.pkl`, `label_names.pkl`, `accuracy_report.txt`, `confusion_matrix.png`, `reference_cache.pkl`) đặt vào thư mục `models/` vừa tạo.
 
 ---
 
 ## Hướng dẫn sử dụng
 
-### 1. Chạy trên máy tính cá nhân (Giao diện GUI)
+### 1. Chạy trên máy tính cá nhân (Dòng lệnh CLI)
 
-Kích hoạt giao diện bảng điều khiển Dashboard tương tác bằng lệnh:
+Chạy chương trình giao diện dòng lệnh tương tác bằng lệnh:
 
 ```bash
-python gui_dashboard.py
+python sift_landmark_pipeline.py
 ```
 
-- **Huấn luyện (TRAIN)**: Nhấn nút **TRAIN** trên bảng điều khiển nếu chưa có mô hình. Hệ thống sẽ trích xuất SIFT và huấn luyện K-Means + SVM. Mô hình sau khi huấn luyện xong tự động được lưu trữ vào thư mục `models/`.
-- **Chọn ảnh kiểm thử**: Nhấn nút **CHỌN ẢNH** và chọn một ảnh kiểm thử bất kỳ trong thư mục `test_images/` (ảnh ngoài dataset huấn luyện) để kiểm tra tính khách quan.
-- **Nhận diện**: Nhấn nút **NHẬN DIỆN**. Hệ thống tự động thực hiện: Dự đoán nhãn ban đầu -> Tìm ảnh mẫu khớp đặc trưng -> Tự xoay ảnh về đúng góc thẳng đứng -> Dự đoán lại nhãn sau chỉnh -> Xuất biểu đồ so sánh chi tiết lưu vào thư mục `results_pipeline/`.
+- **Nhận diện và sửa xoay tự động**:
+  1. Nhập lựa chọn `1` từ menu.
+  2. Nhập đường dẫn ảnh cần kiểm thử (ví dụ: `test_images/chuamotcot_rotated.jpg`).
+  3. (Tùy chọn) Nhập góc giả lập xoay nếu muốn mô phỏng ảnh bị nghiêng, hoặc nhấn Enter để bỏ qua.
+  4. Hệ thống tự động thực hiện: Dự đoán nhãn ban đầu -> Tìm ảnh mẫu khớp đặc trưng bằng thuật toán Hybrid FAST-SIFT -> Tự xoay ảnh về đúng góc thẳng đứng -> Dự đoán lại nhãn sau khi chỉnh -> In báo cáo so sánh độ tin cậy và lưu biểu đồ trực quan vào thư mục `results_pipeline/`.
 
 ### 2. Chạy trên Google Colab (Notebook)
 
@@ -172,14 +174,11 @@ Dự án tích hợp sẵn file Notebook [sift_landmark_colab.ipynb](file:///d:/
 
 ## Cấu trúc project
 
-- `gui_dashboard.py`
-  → Giao diện + xử lý đa luồng
-
 - `landmark_sift_bovw.py`
-  → SIFT + BoVW + SVM
+  → Định nghĩa trích xuất SIFT, gom cụm K-Means, tạo histogram SPM và huấn luyện/dự đoán bằng SVM.
 
 - `sift_landmark_pipeline.py`
-  → Pipeline xử lý xoay ảnh
+  → Chương trình chạy pipeline, tìm kiếm ảnh mẫu (Hybrid FAST-SIFT), phát hiện góc lệch và tự xoay ảnh.
 
 ---
 

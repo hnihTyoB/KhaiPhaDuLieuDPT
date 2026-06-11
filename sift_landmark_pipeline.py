@@ -1,6 +1,20 @@
 # -*- coding: utf-8 -*-
 
 import os
+import sys
+
+# Khắc phục lỗi UnicodeEncodeError trên các console Windows dùng cp1252
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+if hasattr(sys.stderr, 'reconfigure'):
+    try:
+        sys.stderr.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
 import cv2
 import numpy as np
 import pickle
@@ -271,16 +285,16 @@ def load_reference_cache():
         return None
 
 
-TOP_N_CANDIDATES = 15  # Số ảnh ứng viên lấy ra từ vector search
+TOP_N_CANDIDATES = 40  # Tăng số lượng ứng viên để tăng cơ hội tìm thấy ảnh trùng khớp cao
 
 
-def find_best_reference_fast(user_gray, reference_cache, kmeans_model):
+def find_best_reference_fast(user_gray, reference_cache, kmeans_model, svm_proba=None):
     """
-    Tìm ảnh mẫu phù hợp nhất bằng cache (phiên bản tối ưu).
+    Tìm ảnh mẫu phù hợp nhất bằng cache (phiên bản tối ưu kết hợp SVM + Cosine Similarity).
     1. Tính histogram 1x1 cho ảnh user (bất biến xoay)
-    2. Cosine similarity với toàn bộ cache → Top N
-    3. Chỉ chạy SIFT matching chi tiết trên Top N
-    Trả về dict cùng format như find_best_reference.
+    2. Cosine similarity với toàn bộ cache
+    3. Kết hợp xác suất SVM (nếu có) để đưa các ảnh thuộc lớp dự đoán lên đầu
+    4. Chỉ chạy SIFT matching chi tiết trên Top N ứng viên tốt nhất
     """
     # SIFT trích xuất ảnh user
     kp_user, desc_user = sift_extract(user_gray)
@@ -304,10 +318,22 @@ def find_best_reference_fast(user_gray, reference_cache, kmeans_model):
     cached_hists = reference_cache['histograms']  # (N, K)
     similarities = cached_hists @ user_hist        # (N,)
 
-    # Lấy Top N ứng viên
-    top_indices = np.argsort(similarities)[::-1][:TOP_N_CANDIDATES]
+    # Kết hợp thông tin SVM nếu có để tối ưu hóa tìm kiếm
+    if svm_proba is not None:
+        fused_scores = np.zeros_like(similarities)
+        for i, entry in enumerate(reference_cache['entries']):
+            c_name = entry['class_name']
+            prob = svm_proba.get(c_name, 0.0)
+            # Ưu tiên các lớp có xác suất phân loại SVM cao, trong đó xếp hạng theo cosine similarity
+            fused_scores[i] = 0.3 * similarities[i] + 0.7 * prob
+        scores_to_sort = fused_scores
+    else:
+        scores_to_sort = similarities
 
-    print(f"[FAST-SIFT] Vector search xong → Top {TOP_N_CANDIDATES} ứng viên (từ {len(cached_hists)} ảnh cache)\n")
+    # Lấy Top N ứng viên
+    top_indices = np.argsort(scores_to_sort)[::-1][:TOP_N_CANDIDATES]
+
+    print(f"[FAST-SIFT] Vector search (kết hợp SVM) xong -> Top {TOP_N_CANDIDATES} ứng viên (từ {len(cached_hists)} ảnh cache)\n")
 
     # Chạy SIFT matching chi tiết chỉ trên Top N
     best = None
@@ -364,9 +390,9 @@ def find_best_reference_fast(user_gray, reference_cache, kmeans_model):
                 }
 
     if best and best['score'] >= MIN_GOOD_MATCHES - 2:
-        print(f"\n  ✓ Ảnh mẫu reference: {os.path.basename(best['ref_path'])} "
-              f"(Lớp: {DISPLAY_NAMES.get(best['class_name'], best['class_name'])}) "
-              f"— {best['num_matches']} matches (Votes: {best['score']})")
+        print(f"\n  [OK] Anh mau reference: {os.path.basename(best['ref_path'])} "
+              f"(Lop: {DISPLAY_NAMES.get(best['class_name'], best['class_name'])}) "
+              f"- {best['num_matches']} matches (Votes: {best['score']})")
 
         # Trích lọc Top 3 đại diện (cùng logic như find_best_reference)
         candidates_meta.sort(key=lambda x: x['score'], reverse=True)
@@ -388,7 +414,7 @@ def find_best_reference_fast(user_gray, reference_cache, kmeans_model):
 
         return best
     else:
-        print(f"\n✗ Không tìm thấy ảnh mẫu phù hợp")
+        print(f"\n[FAIL] Khong tim thay anh mau phu hop")
         return None
 
 
@@ -466,9 +492,9 @@ def find_best_reference(user_gray, dataset_path, classes_to_search):
                     }
 
     if best and best['score'] >= MIN_GOOD_MATCHES - 2:
-        print(f"\n  ✓ Ảnh mẫu reference: {os.path.basename(best['ref_path'])} "
-              f"(Lớp: {DISPLAY_NAMES.get(best['class_name'], best['class_name'])}) "
-              f"— {best['num_matches']} matches (Votes: {best['score']})")
+        print(f"\n  [OK] Anh mau reference: {os.path.basename(best['ref_path'])} "
+              f"(Lop: {DISPLAY_NAMES.get(best['class_name'], best['class_name'])}) "
+              f"- {best['num_matches']} matches (Votes: {best['score']})")
               
         # Trích lọc Top 3 đại diện
         candidates_meta.sort(key=lambda x: x['score'], reverse=True)
@@ -491,7 +517,7 @@ def find_best_reference(user_gray, dataset_path, classes_to_search):
         
         return best
     else:
-        print(f"\n✗ Không tìm thấy ảnh mẫu phù hợp")
+        print(f"\n[FAIL] Khong tim thay anh mau phu hop")
         return None
 
 
@@ -546,18 +572,18 @@ def print_prediction(result, header=""):
     print(f"Xác suất:")
     for name, prob in result['all_proba'].items():
         display = DISPLAY_NAMES.get(name, name)
-        bar = "█" * int(prob * 30)
+        bar = "#" * int(prob * 30)
         print(f"     {display:30s}  {prob:.4f}  {bar}")
 
 
 def print_comparison(before, after, detected_angle, simulated_angle):
-    print(f"\n{'═' * 65}")
+    print(f"\n{'=' * 65}")
     print("KẾT QUẢ SO SÁNH: TRƯỚC vs SAU SIFT PREPROCESSING")
-    print(f"{'═' * 65}")
+    print(f"{'=' * 65}")
 
     # Bảng so sánh
     print(f"\n{'Tiêu chí':20s} {'TRƯỚC CHỈNH':>18s}    {'SAU CHỈNH':>18s}    {'THAY ĐỔI':>10s}")
-    print(f"{'─' * 20} {'─' * 18}    {'─' * 18}    {'─' * 10}")
+    print(f"{'-' * 20} {'-' * 18}    {'-' * 18}    {'-' * 10}")
 
     # Dự đoán
     print(f"{'Dự đoán':20s} {before['display_name']:>18s}    {after['display_name']:>18s}")
@@ -686,9 +712,9 @@ def save_pipeline_results(user_gray, corrected_gray, ref_info,
 
 # PIPELINE CHÍNH
 def full_pipeline(image_path, simulate_angle=None):
-    print("\n" + "█" * 65)
+    print("\n" + "=" * 65)
     print("PIPELINE: SIFT PREPROCESSING + NHẬN DẠNG ẢNH ĐỊA DANH")
-    print("█" * 65)
+    print("=" * 65)
 
     os.makedirs(RESULTS_DIR, exist_ok=True)
 
@@ -713,7 +739,7 @@ def full_pipeline(image_path, simulate_angle=None):
     img = cv2.resize(img, IMG_SIZE)
     user_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     original_gray = user_gray.copy()  # Lưu bản gốc (dùng cho SSIM nếu giả lập)
-    print(f"OK — {user_gray.shape[1]}x{user_gray.shape[0]}")
+    print(f"OK - {user_gray.shape[1]}x{user_gray.shape[0]}")
 
     # Giả lập xoay (nếu có)
     if simulate_angle is not None and simulate_angle != 0:
@@ -722,9 +748,9 @@ def full_pipeline(image_path, simulate_angle=None):
         user_gray = rotate_image(user_gray, simulate_angle)
 
     # BƯỚC 2: Dự đoán TRƯỚC khi chỉnh
-    print(f"\n{'─' * 65}")
+    print(f"\n{'-' * 65}")
     print("BƯỚC 2: DỰ ĐOÁN TRƯỚC KHI CHỈNH (ẢNH GỐC CỦA USER)")
-    print(f"{'─' * 65}")
+    print(f"{'-' * 65}")
 
     result_before = predict_single(user_gray, kmeans, svm, label_names)
     if result_before is None:
@@ -733,10 +759,10 @@ def full_pipeline(image_path, simulate_angle=None):
 
     print_prediction(result_before)
 
-    # BƯỚC 3: SIFT matching → Tìm ảnh mẫu + phát hiện góc xoay
-    print(f"\n{'─' * 65}")
-    print("BƯỚC 3: SIFT MATCHING → PHÁT HIỆN GÓC XOAY")
-    print(f"{'─' * 65}")
+    # BƯỚC 3: SIFT matching -> Tìm ảnh mẫu + phát hiện góc xoay
+    print(f"\n{'-' * 65}")
+    print("BƯỚC 3: SIFT MATCHING -> PHÁT HIỆN GÓC XOAY")
+    print(f"{'-' * 65}")
 
     # Truyền tất cả các lớp vào hàm SIFT matching thay vì chỉ lớp có xác suất cao nhất
     classes_to_search = list(result_before['all_proba'].keys())
@@ -745,14 +771,14 @@ def full_pipeline(image_path, simulate_angle=None):
     ref_cache = load_reference_cache()
     if ref_cache is not None:
         print("[INFO] Đang dùng Reference Cache (BoVW 1x1 Vector Search) tìm ảnh mẫu nhanh...")
-        ref_info = find_best_reference_fast(user_gray, ref_cache, kmeans)
+        ref_info = find_best_reference_fast(user_gray, ref_cache, kmeans, result_before['all_proba'])
     else:
         print("[WARN] Chưa tìm thấy Reference Cache. Sử dụng duyệt tuần tự (Chậm)...")
         ref_info = find_best_reference(user_gray, DATASET_PATH, classes_to_search)
 
     if ref_info is None:
-        print("\n→ Không tìm được ảnh mẫu phù hợp.")
-        print("→ Giữ nguyên kết quả dự đoán ban đầu.")
+        print("\n-> Không tìm được ảnh mẫu phù hợp.")
+        print("-> Giữ nguyên kết quả dự đoán ban đầu.")
         print_comparison(result_before, result_before, None, simulate_angle)
         return
 
@@ -762,7 +788,7 @@ def full_pipeline(image_path, simulate_angle=None):
     )
 
     if detected_angle is None or votes < 5 or (abs(detected_angle) > 135 and votes < 8):
-        print(f"\nRotation không đáng tin (góc: {detected_angle or 0:.1f}°, votes: {votes}) → BỎ QUA XOAY ẢNH.")
+        print(f"\nRotation không đáng tin (góc: {detected_angle or 0:.1f}°, votes: {votes}) -> BỎ QUA XOAY ẢNH.")
         print_comparison(result_before, result_before, None, simulate_angle)
         
         # Lưu kết quả kể cả khi bỏ qua xoay
@@ -776,13 +802,13 @@ def full_pipeline(image_path, simulate_angle=None):
     print(f"Votes: {votes}/{len(ref_info['good_matches'])} good matches")
 
     # BƯỚC 4: Chỉnh xoay ảnh
-    print(f"\n{'─' * 65}")
+    print(f"\n{'-' * 65}")
     print("BƯỚC 4: CHỈNH XOAY ẢNH")
-    print(f"{'─' * 65}")
+    print(f"{'-' * 65}")
 
     correction = -detected_angle
     corrected_gray = rotate_image(user_gray, correction)
-    print(f"↻ Xoay ảnh {correction:+.1f}° (ngược lại góc phát hiện {detected_angle:+.1f}°)")
+    print(f"[Xoay] Xoay ảnh {correction:+.1f}° (ngược lại góc phát hiện {detected_angle:+.1f}°)")
 
     # SSIM (so sánh với ảnh gốc trước khi giả lập xoay)
     if simulate_angle is not None and simulate_angle != 0:
@@ -793,9 +819,9 @@ def full_pipeline(image_path, simulate_angle=None):
               f"({ssim_after - ssim_before:+.4f})")
 
     # BƯỚC 5: Dự đoán SAU khi chỉnh
-    print(f"\n{'─' * 65}")
+    print(f"\n{'-' * 65}")
     print("BƯỚC 5: DỰ ĐOÁN SAU KHI CHỈNH SIFT")
-    print(f"{'─' * 65}")
+    print(f"{'-' * 65}")
 
     result_after = predict_single(corrected_gray, kmeans, svm, label_names)
     if result_after is None:
@@ -818,17 +844,17 @@ def full_pipeline(image_path, simulate_angle=None):
 def main():
     while True:
         print("\n" + "=" * 65)
-        print("SIFT LANDMARK PIPELINE — TỰ XOAY CHỈNH VÀ NHẬN DIỆN")
+        print("SIFT LANDMARK PIPELINE - TỰ XOAY CHỈNH VÀ NHẬN DIỆN")
         print("=" * 65)
         print(f"""
   Mô tả:
      Dùng SIFT để chỉnh ảnh (xoay, nghiêng) TRƯỚC KHI đưa cho
-     mô hình ML nhận dạng → cải thiện độ chính xác.
+     mô hình ML nhận dạng -> cải thiện độ chính xác.
 
   Cấu hình:
-     • Dataset:     {DATASET_PATH}/
-     • Models:      models/
-     • Kết quả:     {RESULTS_DIR}/
+     * Dataset:     {DATASET_PATH}/
+     * Models:      models/
+     * Kết quả:     {RESULTS_DIR}/
         """)
         print("[1] Chạy Pipeline nhận diện ảnh tự sửa góc (Nhập đường dẫn thủ công)")
         print("[0] Thoát")

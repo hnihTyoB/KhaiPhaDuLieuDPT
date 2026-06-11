@@ -19,3 +19,5 @@ __pycache__/
 # Ignore IDE settings
 .vscode/
 .idea/
+# Ignore GUI Dashboard (development only, not pushed to GitHub)
+gui_dashboard.py

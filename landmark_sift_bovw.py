@@ -1,6 +1,20 @@
 # -*- coding: utf-8 -*-
 
 import os
+import sys
+
+# Khắc phục lỗi UnicodeEncodeError trên các console Windows dùng cp1252
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+if hasattr(sys.stderr, 'reconfigure'):
+    try:
+        sys.stderr.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
 import cv2
 import numpy as np
 import pickle
@@ -126,7 +140,7 @@ def load_dataset_and_extract_sift(dataset_path):
         ])
 
         display_name = DISPLAY_NAMES.get(label_name, label_name)
-        print(f"\n[→] Đang xử lý lớp '{display_name}' ({label_name}) — {len(image_files)} ảnh")
+        print(f"\n[->] Dang xu ly lop '{display_name}' ({label_name}) - {len(image_files)} anh")
 
         count = 0
         for img_file in image_files:
@@ -151,13 +165,13 @@ def load_dataset_and_extract_sift(dataset_path):
                 labels.append(label_name)
                 count += 1
             else:
-                print(f"[SKIP] {img_file} — không tìm thấy keypoints")
+                print(f"[SKIP] {img_file} - khong tim thay keypoints")
                 skipped += 1
 
-        print(f"✓ {count} ảnh có descriptors | keypoints tổng: {sum(len(d['descriptors']) for d in image_data_list[-count:]) if count > 0 else 0}")
+        print(f"[OK] {count} anh co descriptors | keypoints tong: {sum(len(d['descriptors']) for d in image_data_list[-count:]) if count > 0 else 0}")
 
-    print(f"\n[KẾT QUẢ] Tổng descriptors: {len(all_descriptors)} | "
-          f"Tổng ảnh hợp lệ: {len(image_data_list)} | Bỏ qua: {skipped}")
+    print(f"\n[KET QUA] Tong descriptors: {len(all_descriptors)} | "
+          f"Tong anh hop le: {len(image_data_list)} | Bo qua: {skipped}")
 
     if len(all_descriptors) == 0:
         print("[LỖI] Không trích xuất được descriptor nào!")
@@ -195,7 +209,7 @@ def build_visual_vocabulary(all_descriptors, k):
     kmeans.fit(all_descriptors)
 
     print(f"[OK] Từ điển thị giác đã xây dựng thành công!")
-    print(f"     └── Inertia (tổng khoảng cách nội cụm): {kmeans.inertia_:.2f}")
+    print(f"     +-- Inertia (tổng khoảng cách nội cụm): {kmeans.inertia_:.2f}")
 
     return kmeans
 
@@ -278,7 +292,7 @@ def train_svm(features, labels, label_names, kernel):
             stratify=numeric_labels
         )
 
-    print(f"     └── Train: {len(X_train)} mẫu | Test: {len(X_test)} mẫu")
+    print(f"     +-- Train: {len(X_train)} mẫu | Test: {len(X_test)} mẫu")
 
     # Huấn luyện SVM
     print(f"\n[INFO] Huấn luyện SVM (kernel='{kernel}', C={SVM_C})...")
@@ -312,7 +326,7 @@ def train_svm(features, labels, label_names, kernel):
     print("[Confusion Matrix]")
     print(cm)
 
-    # Vẽ Confusion Matrix → lưu file
+    # Vẽ Confusion Matrix -> lưu file
     plot_confusion_matrix(cm, display_labels)
 
     # Ghi báo cáo độ chính xác ra file
@@ -375,16 +389,16 @@ def save_models(kmeans_model, svm_model, label_names):
         pickle.dump(label_names, f)
 
     print(f"\n[OK] Mô hình đã lưu tại thư mục '{MODEL_DIR}/'")
-    print(f"     ├── {KMEANS_MODEL_PATH}")
-    print(f"     ├── {SVM_MODEL_PATH}")
-    print(f"     └── {LABEL_NAMES_PATH}")
+    print(f"     +-- {KMEANS_MODEL_PATH}")
+    print(f"     +-- {SVM_MODEL_PATH}")
+    print(f"     +-- {LABEL_NAMES_PATH}")
 
 
 def load_models():
     required = [KMEANS_MODEL_PATH, SVM_MODEL_PATH, LABEL_NAMES_PATH]
     if not all(os.path.exists(p) for p in required):
         print("[LỖI] Chưa tìm thấy mô hình đã huấn luyện!")
-        print("→ Vui lòng chọn chế độ Huấn luyện (option 1) trước.")
+        print("-> Vui lòng chọn chế độ Huấn luyện (option 1) trước.")
         return None, None, None
 
     with open(KMEANS_MODEL_PATH, 'rb') as f:
@@ -400,9 +414,9 @@ def load_models():
 
 # QUY TRÌNH HUẤN LUYỆN
 def train_pipeline():
-    print("\n" + "█" * 60)
-    print("GIAI ĐOẠN HUẤN LUYỆN")
-    print("█" * 60)
+    print("\n" + "=" * 60)
+    print("GIAI DOAN HUAN LUYEN")
+    print("=" * 60)
 
     if not os.path.exists(DATASET_PATH):
         print(f"[LỖI] Thư mục '{DATASET_PATH}' không tồn tại!")
@@ -414,7 +428,7 @@ def train_pipeline():
     all_descriptors, image_data_list, labels, label_names = result
 
     if all_descriptors is None:
-        print("[LỖI] Không thể tiếp tục huấn luyện — không có dữ liệu!")
+        print("[LỖI] Không thể tiếp tục huấn luyện - không có dữ liệu!")
         return False
 
     # Bước 4.1: K-Means clustering
@@ -440,9 +454,9 @@ def train_pipeline():
     except Exception as e:
         print(f"[WARN] Lỗi khi tạo reference cache tự động: {e}")
 
-    print("\n" + "█" * 60)
-    print(f"HUẤN LUYỆN HOÀN THÀNH! — Accuracy: {accuracy:.2%}")
-    print("█" * 60)
+    print("\n" + "=" * 60)
+    print(f"HUẤN LUYỆN HOÀN THÀNH! - Accuracy: {accuracy:.2%}")
+    print("=" * 60)
 
     return True
 
@@ -491,19 +505,19 @@ def predict_image(image_path):
         display_name = DISPLAY_NAMES.get(pred_label, pred_label)
 
     # Hiển thị kết quả
-    print("\n" + "─" * 55)
+    print("\n" + "-" * 55)
     print(f"ĐỊA DANH:     {display_name}")
     print(f"ĐỘ TIN CẬY:   {confidence:.2%}")
     print(f"SỐ KEYPOINTS: {len(descriptors)}")
     if confidence < CONFIDENCE_THRESHOLD:
-        print(f"GHI CHÚ: Confidence < {CONFIDENCE_THRESHOLD:.0%} → Không xác định")
-    print("─" * 55)
+        print(f"GHI CHÚ: Confidence < {CONFIDENCE_THRESHOLD:.0%} -> Không xác định")
+    print("-" * 55)
     print("XÁC SUẤT CHO TỪNG LỚP:")
     for i, name in enumerate(label_names):
         display = DISPLAY_NAMES.get(name, name)
-        bar = "█" * int(pred_proba[i] * 30)
+        bar = "#" * int(pred_proba[i] * 30)
         print(f"   {display:30s} {pred_proba[i]:.4f}  {bar}")
-    print("─" * 55)
+    print("-" * 55)
 
     # Hiển thị keypoints trên ảnh (nếu có GUI)
     try:
@@ -534,19 +548,19 @@ def predict_image(image_path):
         print(f"[INFO] Lỗi trong quá trình xuất ảnh dự đoán: {e}")
 
 
-# HÀM CHÍNH — MENU CONSOLE
+# HÀM CHÍNH - MENU CONSOLE
 def main():
     while True:
         print("\n" + "=" * 60)
-        print("PHÂN LOẠI ẢNH ĐỊA DANH — SIFT + K-MEANS + SVM")
+        print("PHÂN LOẠI ẢNH ĐỊA DANH - SIFT + K-MEANS + SVM")
         print("=" * 60)
         print(f"""
     Cấu hình hiện tại:
-    • Dataset:        {DATASET_PATH}/
-    • Kích thước ảnh: {IMG_SIZE[0]}×{IMG_SIZE[1]}
-    • Số cụm K:       {K_CLUSTERS}
-    • SVM Kernel:     {SVM_KERNEL}
-    • Train/Test:     {int((1 - TEST_SPLIT_RATIO) * 100)}/{int(TEST_SPLIT_RATIO * 100)}
+    * Dataset:        {DATASET_PATH}/
+    * Kích thước ảnh: {IMG_SIZE[0]}x{IMG_SIZE[1]}
+    * Số cụm K:       {K_CLUSTERS}
+    * SVM Kernel:     {SVM_KERNEL}
+    * Train/Test:     {int((1 - TEST_SPLIT_RATIO) * 100)}/{int(TEST_SPLIT_RATIO * 100)}
         """)
         print("[1] Huấn luyện mô hình")
         print("[2] Dự đoán ảnh mới (Nhập đường dẫn bằng tay)")

@@ -137,10 +137,19 @@ Bộ dữ liệu huấn luyện địa danh của dự án được lưu trữ d
 Nếu bạn không muốn mất thời gian huấn luyện lại mô hình từ đầu, bạn có thể tải về bộ mô hình đã được nhóm huấn luyện sẵn:
 
 - **Link tải xuống**: [models.zip (Google Drive)](https://drive.google.com/file/d/1298FmCefx6tUlkOO5VNC-iAuFRTWgSJo/view?usp=sharing)
-- **Hướng dẫn cài đặt**:
-  1. Tải file `models.zip` về máy tính.
-  2. Tạo thư mục đặt tên là `models` ở thư mục gốc của dự án (`Nhom4_Project/`).
-  3. Giải nén file `models.zip` và di chuyển toàn bộ các file bên trong (`kmeans_model.pkl`, `svm_model.pkl`, `label_names.pkl`, `accuracy_report.txt`, `confusion_matrix.png`, `reference_cache.pkl`) đặt vào thư mục `models/` vừa tạo.
+
+### Hướng dẫn lưu trữ và cài đặt chi tiết
+
+#### 1. Khi chạy trên máy tính cá nhân (Local / Offline)
+
+1. Tải file `models.zip` về máy tính.
+2. Tạo thư mục đặt tên là `models` ở thư mục gốc của dự án (`Nhom4_Project/`).
+3. Giải nén file `models.zip` và di chuyển toàn bộ các file bên trong (`kmeans_model.pkl`, `svm_model.pkl`, `label_names.pkl`, `accuracy_report.txt`, `confusion_matrix.png`, `reference_cache.pkl`) đặt vào thư mục `models/` vừa tạo.
+
+#### 2. Khi chạy trên Google Colab (Online / Cloud)
+
+- **Vị trí lưu**: Tải file `models.zip` về máy tính, sau đó tải nó lên **thư mục gốc** của Google Drive cá nhân của bạn (mục **Drive của tôi** / **My Drive**, nằm cùng cấp với file `dataset.zip`).
+- **Lý do**: Cấu trúc này giúp câu lệnh sao chép tự động `!cp /content/drive/MyDrive/models.zip .` trong Notebook tự động tải và giải nén mô hình mà không cần huấn luyện lại từ đầu.
 
 ---
 
